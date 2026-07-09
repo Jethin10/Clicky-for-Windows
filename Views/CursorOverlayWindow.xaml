@@ -1,0 +1,56 @@
+<Window x:Class="Clicky.Windows.Views.CursorOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Focusable="False"
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStyle="None"
+        ResizeMode="NoResize">
+  <Canvas x:Name="RootCanvas" Background="Transparent" IsHitTestVisible="False" ClipToBounds="True">
+    <Grid x:Name="Buddy" Width="190" Height="112" RenderTransformOrigin="0.2,0.5">
+      <Grid.RenderTransform>
+        <ScaleTransform x:Name="BuddyScale" ScaleX="1" ScaleY="1" />
+      </Grid.RenderTransform>
+      <Path x:Name="CursorTriangle"
+            Width="16"
+            Height="16"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Data="M 8,0 L 0,14 L 16,14 Z"
+            Fill="#3380FF"
+            Effect="{DynamicResource CursorGlow}">
+        <Path.RenderTransform>
+          <RotateTransform Angle="-35" CenterX="8" CenterY="8" />
+        </Path.RenderTransform>
+      </Path>
+      <Grid x:Name="Waveform" Visibility="Collapsed" Width="26" Height="22" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,3,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Border x:Name="Wave1" Grid.Column="0" Width="3" Height="7" CornerRadius="2" Background="#3380FF" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        <Border x:Name="Wave2" Grid.Column="1" Width="3" Height="12" CornerRadius="2" Background="#3380FF" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        <Border x:Name="Wave3" Grid.Column="2" Width="3" Height="18" CornerRadius="2" Background="#3380FF" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        <Border x:Name="Wave4" Grid.Column="3" Width="3" Height="12" CornerRadius="2" Background="#3380FF" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        <Border x:Name="Wave5" Grid.Column="4" Width="3" Height="7" CornerRadius="2" Background="#3380FF" VerticalAlignment="Center" HorizontalAlignment="Center" />
+      </Grid>
+      <Grid x:Name="Spinner" Visibility="Collapsed" Width="20" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,3,0,0">
+        <Grid.RenderTransform>
+          <RotateTransform x:Name="SpinnerRotation" CenterX="10" CenterY="10" />
+        </Grid.RenderTransform>
+        <Ellipse Width="17" Height="17" Stroke="#3380FF" StrokeThickness="2.4" StrokeDashArray="2 1" Opacity="0.96" />
+      </Grid>
+      <Border x:Name="Bubble" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,19,0,0" Padding="9,6,9,7" MaxWidth="154" Background="#3380FF" CornerRadius="10">
+        <Border.Effect>
+          <DropShadowEffect Color="#3380FF" BlurRadius="15" ShadowDepth="0" Opacity="0.56" />
+        </Border.Effect>
+        <TextBlock x:Name="BubbleText" Foreground="White" FontFamily="Segoe UI Variable" FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap" />
+      </Border>
+    </Grid>
+  </Canvas>
+  <Window.Resources>
+    <DropShadowEffect x:Key="CursorGlow" Color="#3380FF" BlurRadius="15" ShadowDepth="0" Opacity="0.88" />
+  </Window.Resources>
+</Window>

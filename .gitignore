@@ -1,0 +1,20 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+
+# Local SDK state
+.dotnet-cli/
+.vs/
+
+# Publish artifacts (ship separately as release assets)
+publish/
+release/
+
+# Per-user IDE and environment files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.env
+.env.*
+!.env.example

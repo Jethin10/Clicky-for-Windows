@@ -1,0 +1,137 @@
+<Window x:Class="Clicky.Windows.Views.CompanionPanelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="320" MinWidth="320" MaxWidth="320" SizeToContent="Height" MaxHeight="620"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
+        ShowActivated="True">
+  <Window.Resources>
+    <SolidColorBrush x:Key="Canvas" Color="#101211" />
+    <SolidColorBrush x:Key="Surface" Color="#202221" />
+    <SolidColorBrush x:Key="Border" Color="#373B39" />
+    <SolidColorBrush x:Key="Primary" Color="#ECEEED" />
+    <SolidColorBrush x:Key="Secondary" Color="#ADB5B2" />
+    <SolidColorBrush x:Key="Tertiary" Color="#6B736F" />
+    <SolidColorBrush x:Key="Blue" Color="#2563EB" />
+    <SolidColorBrush x:Key="BlueLight" Color="#3380FF" />
+    <SolidColorBrush x:Key="Green" Color="#34D399" />
+    <Style x:Key="QuietButton" TargetType="Button">
+      <Setter Property="Foreground" Value="{StaticResource Secondary}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontFamily" Value="Segoe UI Variable" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="#2E3130" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="GrantButton" TargetType="Button" BasedOn="{StaticResource QuietButton}">
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Background" Value="{StaticResource Blue}" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+  </Window.Resources>
+  <Border Background="{StaticResource Canvas}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="16" Padding="0">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="50" />
+        <RowDefinition Height="1" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="1" />
+        <RowDefinition Height="54" />
+      </Grid.RowDefinitions>
+      <Grid Grid.Row="0" Margin="16,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="26" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#6B736F" Margin="0,0,8,0" />
+          <TextBlock Text="Clicky" Foreground="{StaticResource Primary}" FontFamily="Segoe UI Variable" FontSize="14" FontWeight="SemiBold" />
+        </StackPanel>
+        <TextBlock x:Name="StateText" Grid.Column="1" VerticalAlignment="Center" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="12" FontWeight="Medium" Text="Ready" />
+        <Button Grid.Column="2" Click="HidePanel" Style="{StaticResource QuietButton}" Width="24" Height="24" Content="x" FontSize="14" FontWeight="SemiBold" />
+      </Grid>
+      <Border Grid.Row="1" Background="{StaticResource Border}" Margin="16,0" />
+      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="16,16,16,12">
+          <StackPanel>
+            <StackPanel x:Name="SetupCopyPanel">
+              <TextBlock Text="Hi, I&apos;m Farza. This is Clicky." Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="12" FontWeight="Bold" />
+              <TextBlock Text="A side project I made for fun to help me learn stuff as I use my computer." Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+              <TextBlock Text="Nothing runs in the background. Clicky only captures a screenshot after you use the hotkey." Foreground="#E56B6F" FontFamily="Segoe UI Variable" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+            </StackPanel>
+            <TextBlock x:Name="PermissionHeading" Text="PERMISSIONS" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" FontWeight="SemiBold" Margin="0,18,0,5" />
+            <StackPanel x:Name="PermissionPanel">
+              <Grid Margin="0,5">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <Ellipse Grid.Column="0" Width="10" Height="10" Fill="#FFB224" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1"><TextBlock Text="Microphone" Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="13" FontWeight="Medium" /><TextBlock Text="Used only while Ctrl+Alt is held" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" /></StackPanel>
+                <Button x:Name="MicrophoneButton" Grid.Column="2" Click="GrantMicrophone" Style="{StaticResource GrantButton}" Content="Grant" />
+                <TextBlock x:Name="MicrophoneStatus" Grid.Column="2" Visibility="Collapsed" Foreground="{StaticResource Green}" FontFamily="Segoe UI Variable" FontSize="11" FontWeight="Medium" Text="Granted" VerticalAlignment="Center" />
+              </Grid>
+              <Grid Margin="0,5">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <Ellipse Grid.Column="0" Width="10" Height="10" Fill="#FFB224" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1"><TextBlock Text="Accessibility" Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="13" FontWeight="Medium" /><TextBlock Text="Enables the non-blocking global hotkey" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" /></StackPanel>
+                <Button x:Name="AccessibilityButton" Grid.Column="2" Click="GrantAccessibility" Style="{StaticResource GrantButton}" Content="Grant" />
+                <TextBlock x:Name="AccessibilityStatus" Grid.Column="2" Visibility="Collapsed" Foreground="{StaticResource Green}" FontFamily="Segoe UI Variable" FontSize="11" FontWeight="Medium" Text="Granted" VerticalAlignment="Center" />
+              </Grid>
+              <Grid Margin="0,5">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <Ellipse Grid.Column="0" Width="10" Height="10" Fill="#FFB224" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1"><TextBlock Text="Screen Recording" Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="13" FontWeight="Medium" /><TextBlock Text="Only captures after the hotkey releases" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" /></StackPanel>
+                <Button x:Name="ScreenButton" Grid.Column="2" Click="GrantScreen" Style="{StaticResource GrantButton}" Content="Grant" />
+                <TextBlock x:Name="ScreenStatus" Grid.Column="2" Visibility="Collapsed" Foreground="{StaticResource Green}" FontFamily="Segoe UI Variable" FontSize="11" FontWeight="Medium" Text="Granted" VerticalAlignment="Center" />
+              </Grid>
+              <Grid Margin="0,5">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <Ellipse Grid.Column="0" Width="10" Height="10" Fill="#FFB224" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1"><TextBlock Text="Screen Content" Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="13" FontWeight="Medium" /><TextBlock Text="Mapped to Windows display capture" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" /></StackPanel>
+                <Button x:Name="ContentButton" Grid.Column="2" Click="GrantContent" Style="{StaticResource GrantButton}" Content="Grant" />
+                <TextBlock x:Name="ContentStatus" Grid.Column="2" Visibility="Collapsed" Foreground="{StaticResource Green}" FontFamily="Segoe UI Variable" FontSize="11" FontWeight="Medium" Text="Granted" VerticalAlignment="Center" />
+              </Grid>
+            </StackPanel>
+            <StackPanel x:Name="EmailPanel" Visibility="Collapsed" Margin="0,18,0,0">
+              <TextBlock Text="Drop your email to get started." Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="12" FontWeight="Medium" />
+              <TextBlock Text="If I keep building this, I&apos;ll keep you in the loop." Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="11" Margin="0,4,0,8" />
+              <TextBox x:Name="EmailInput" TextChanged="EmailChanged" FontFamily="Segoe UI Variable" FontSize="13" Foreground="{StaticResource Primary}" Background="#171918" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10,8" />
+              <Button x:Name="SubmitButton" Click="SubmitEmail" IsEnabled="False" Margin="0,8,0,0" Style="{StaticResource GrantButton}" FontSize="14" Padding="10" Content="Submit" />
+            </StackPanel>
+            <StackPanel x:Name="StartPanel" Visibility="Collapsed" Margin="0,18,0,0">
+              <TextBlock Text="You&apos;re all set. Hit Start to meet Clicky." Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="12" />
+              <Button Click="StartClicky" Margin="0,10,0,0" Style="{StaticResource GrantButton}" FontSize="14" Padding="10" Content="Start" />
+            </StackPanel>
+            <StackPanel x:Name="ReadyPanel" Visibility="Collapsed" Margin="0,0,0,0">
+              <TextBlock Text="Hold Control+Alt to talk." Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="12" FontWeight="Medium" />
+              <TextBlock x:Name="WorkerStatus" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" Margin="0,5,0,0" TextWrapping="Wrap" />
+              <Grid Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="SonnetButton" Grid.Column="0" Click="SelectSonnet" Style="{StaticResource QuietButton}" Background="#2563EB" Foreground="White" Padding="8,7" Content="Sonnet" FontSize="12" /><Button x:Name="OpusButton" Grid.Column="1" Click="SelectOpus" Style="{StaticResource QuietButton}" Background="#202221" Padding="8,7" Content="Opus" FontSize="12" /></Grid>
+              <Button Click="OpenFeedback" Style="{StaticResource QuietButton}" Margin="0,16,0,0" HorizontalAlignment="Left" Padding="0" Content="DM Farza" Foreground="{StaticResource BlueLight}" FontSize="12" />
+              <Button Click="ReplayOnboarding" Style="{StaticResource QuietButton}" Margin="0,10,0,0" HorizontalAlignment="Left" Padding="0" Content="Replay onboarding" Foreground="{StaticResource Tertiary}" FontSize="11" />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+      </ScrollViewer>
+      <Border Grid.Row="3" Background="{StaticResource Border}" Margin="16,0" />
+      <Grid Grid.Row="4" Margin="16,0">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Background="#202221" CornerRadius="6" Padding="7,4"><TextBlock Text="CTRL + ALT" Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontWeight="SemiBold" FontSize="10" /></Border><TextBlock Text="  hold to talk" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="11" VerticalAlignment="Center" /></StackPanel>
+        <Button HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource QuietButton}" Padding="7,4" Click="QuitClicky" Content="Quit" FontSize="11" />
+      </Grid>
+    </Grid>
+  </Border>
+</Window>
