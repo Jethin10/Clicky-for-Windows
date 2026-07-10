@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Forms = System.Windows.Forms;
 
 namespace Clicky.Windows.Views;
 
@@ -30,6 +31,7 @@ public partial class SettingsWindow : Window
         _safetyIdentifier = currentProvider.SafetyIdentifier;
         Apply(currentProvider);
         ApplyAudio(currentSettings.Audio);
+        AgentWorkspaceInput.Text = currentSettings.Agent.WorkspacePath;
         CredentialHint.Text = string.IsNullOrWhiteSpace(_credentialStore.ReadApiKey())
             ? "No key is saved. Local endpoints may not require one."
             : "A key is saved. Leave this blank to keep it unchanged.";
@@ -108,6 +110,11 @@ public partial class SettingsWindow : Window
         Voice = VoiceInput.Text.Trim()
     };
 
+    private AgentSettings ReadAgent() => new()
+    {
+        WorkspacePath = AgentWorkspaceInput.Text.Trim()
+    };
+
     private async void DiscoverModels(object sender, RoutedEventArgs eventArgs)
     {
         StatusText.Text = "Discovering models...";
@@ -146,6 +153,21 @@ public partial class SettingsWindow : Window
         StatusText.Text = "Saved audio API key removed from Windows Credential Manager.";
     }
 
+    private void BrowseWorkspace(object sender, RoutedEventArgs eventArgs)
+    {
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = "Choose where Clicky agents may create approved files",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true,
+            InitialDirectory = Directory.Exists(AgentWorkspaceInput.Text) ? AgentWorkspaceInput.Text : string.Empty
+        };
+        if (dialog.ShowDialog() == Forms.DialogResult.OK)
+        {
+            AgentWorkspaceInput.Text = dialog.SelectedPath;
+        }
+    }
+
     private void Save(object sender, RoutedEventArgs eventArgs)
     {
         var provider = ReadProvider();
@@ -172,7 +194,7 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var settings = new ClickySettings { Provider = provider, Audio = audio };
+        var settings = new ClickySettings { Provider = provider, Audio = audio, Agent = ReadAgent() };
         _settingsService.Save(settings);
         SettingsSaved?.Invoke(settings);
         DialogResult = true;

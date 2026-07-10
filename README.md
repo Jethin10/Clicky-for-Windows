@@ -91,9 +91,17 @@ serial background queue, can use provider web-search support when enabled, and
 return a visible completion result beside the cursor. The agent prompt forbids
 claiming that an external action happened without a real tool result.
 
-This version intentionally does not yet give agents unrestricted filesystem,
-browser, shell, or email access. Those action tools require explicit approval,
-auditing, and recovery controls before they are safe to ship.
+Build requests can now return a bounded package of up to 20 text files. Clicky
+normalizes every path into the configured agent workspace, blocks traversal,
+absolute paths, duplicate targets, symbolic links, and junctions, then shows a
+native review window containing every create/overwrite action and file preview.
+Nothing is written until **I reviewed these paths and changes** is checked and
+**Write files** is selected. Writes are atomic and existing files are backed up
+under `%LOCALAPPDATA%\Clicky\agent-backups` first.
+
+Agents still do not receive unrestricted filesystem, browser, shell, or email
+access. This upgrade supports approved text-file artifacts only; execution and
+external actions remain separate permission-gated features.
 
 ## Local documents and PDFs
 
@@ -123,7 +131,9 @@ dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release
 It covers spoken agent-command routing, WAV encoding, a loopback HTTP probe of
 the direct transcription endpoint and authentication header, provider audio
 configuration, pointer-tag parsing, text attachments, and optional multi-page
-PDF extraction through `CLICKY_TEST_PDF`.
+PDF extraction through `CLICKY_TEST_PDF`. It also validates agent artifact JSON,
+path traversal rejection, atomic create/overwrite behavior, and overwrite
+backups.
 
 ## Privacy behavior
 

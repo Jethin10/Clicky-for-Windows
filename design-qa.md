@@ -104,6 +104,14 @@ Pass with two intentional Windows adaptations:
 - The smoke suite extracted both pages in order and validated the expected phrases.
 - Rendered the 320×478 ready panel with an attached PDF. File name, page/character count, remove action, prompt, and agent controls remain readable without horizontal clipping.
 
+## Approval-gated agent file builds — 2026-07-10
+
+- Added a bounded agent artifact protocol for up to 20 text files and 2,000,000 total characters.
+- Added lexical workspace containment, absolute/traversal/duplicate-path rejection, symbolic-link and junction rejection, re-checks before writes, atomic UTF-8 replacement, rollback on failure, and persistent overwrite backups.
+- Added a 620×560 native approval window showing workspace, summary, create/overwrite action, character count, and selected-file preview. Users must explicitly check the review confirmation before file writes are enabled.
+- The first visual pass exposed unreadable selected-row text from the native ListView theme; the final pass uses a dark selected foreground and all columns are readable.
+- Smoke tests passed for artifact parsing, create plans, actual atomic file writes, overwrite detection, overwrite backups, and traversal rejection.
+
 ## Final result
 
 passed

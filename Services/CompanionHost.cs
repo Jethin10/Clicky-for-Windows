@@ -16,6 +16,7 @@ public sealed class CompanionHost : IDisposable
     private readonly MicrophoneCaptureService _microphone = new();
     private readonly ScreenCaptureService _screenCapture = new();
     private readonly DocumentContextService _documentContextService = new();
+    private readonly AgentWorkspaceService _agentWorkspaceService = new();
     private readonly OverlayHost _overlayHost = new();
     private readonly TrayService _trayService = new();
     private readonly CompanionPanelWindow _panel = new();
@@ -90,6 +91,12 @@ public sealed class CompanionHost : IDisposable
             && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_SETTINGS"), "1", StringComparison.Ordinal))
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(OpenSettings);
+        }
+
+        if (NativeMethods.IsVisualTest
+            && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_AGENT_APPROVAL"), "1", StringComparison.Ordinal))
+        {
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(ShowAgentApprovalVisualTest);
         }
 
         if (NativeMethods.IsVisualTest
@@ -645,10 +652,16 @@ public sealed class CompanionHost : IDisposable
             queueCountCleared = true;
             Dispatch(() => _panel.SetAgentStatus("Agent working in the background...", active: true));
 
-            var agentPrompt = $"""
-                background agent request: {prompt}
+            var agentPrompt = $$"""
+                background agent request: {{prompt}}
 
-                complete the research, analysis, or artifact drafting that is possible with your available provider tools. do not claim to have edited files, sent messages, clicked controls, or completed external actions unless an actual tool result proves it. return the useful finished result, not a plan. [POINT:none]
+                complete the research, analysis, or artifact drafting that is possible with your available provider tools. do not claim to have edited files, sent messages, clicked controls, or completed external actions unless an actual tool result proves it. return the useful finished result, not a plan.
+
+                when the user asks you to build or create files, include a machine-readable package using exactly this shape, with valid JSON and relative paths only:
+                [CLICKY_FILES]
+                {"summary":"what the files implement","files":[{"path":"index.html","content":"complete file contents"}]}
+                [/CLICKY_FILES]
+                include at most twenty files. never include absolute paths, parent-directory traversal, binaries, commands, or claims that the files were already written. clicky will show the user every proposed file and require approval before writing. [POINT:none]
                 """;
             var response = await AnalyzeConfiguredProviderAsync(
                 captures,
@@ -662,7 +675,24 @@ public sealed class CompanionHost : IDisposable
                 return;
             }
 
-            var result = PointerTagParser.Parse(response.Text).SpokenText;
+            var artifactResult = AgentArtifactParser.Parse(response.Text);
+            var result = PointerTagParser.Parse(artifactResult.VisibleText).SpokenText;
+            if (artifactResult.Package is { } package)
+            {
+                var writeResult = await ReviewAndWriteAgentFilesAsync(package, cancellationToken);
+                if (writeResult is not null)
+                {
+                    result = $"{package.Summary}. Wrote {writeResult.FilesWritten} file{(writeResult.FilesWritten == 1 ? string.Empty : "s")} to {writeResult.WorkspacePath}.";
+                }
+                else
+                {
+                    result = "The file proposal was not written.";
+                }
+            }
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                result = artifactResult.Package?.Summary ?? "Agent finished.";
+            }
             Dispatch(() =>
             {
                 _panel.SetAgentStatus($"Agent finished via {response.ProviderName}", active: false);
@@ -690,6 +720,61 @@ public sealed class CompanionHost : IDisposable
                 _agentQueueGate.Release();
             }
         }
+    }
+
+    private async Task<AgentWriteResult?> ReviewAndWriteAgentFilesAsync(
+        AgentArtifactPackage package,
+        CancellationToken cancellationToken)
+    {
+        var workspace = _settings.Agent.WorkspacePath;
+        if (string.IsNullOrWhiteSpace(workspace) || !Directory.Exists(workspace))
+        {
+            using var folderDialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Choose where Clicky may write these approved agent files",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = true
+            };
+            if (folderDialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+            {
+                return null;
+            }
+
+            workspace = folderDialog.SelectedPath;
+            _settings.Agent.WorkspacePath = workspace;
+            _settingsService.Save(_settings);
+        }
+
+        var plans = _agentWorkspaceService.Plan(workspace, package);
+        var approval = new AgentFileApprovalWindow(workspace, package, plans)
+        {
+            Owner = _panel
+        };
+        if (approval.ShowDialog() != true || !approval.Approved)
+        {
+            return null;
+        }
+
+        _panel.SetAgentStatus("Writing approved files...", active: true);
+        return await _agentWorkspaceService.ApplyAsync(workspace, plans, cancellationToken);
+    }
+
+    private void ShowAgentApprovalVisualTest()
+    {
+        var workspace = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Clicky Workspace");
+        var package = new AgentArtifactPackage(
+            "Responsive product page generated from the current screen",
+            [
+                new AgentFileArtifact("index.html", "<!doctype html>\n<html>\n  <body>\n    <main>Clicky preview</main>\n  </body>\n</html>"),
+                new AgentFileArtifact("styles/site.css", "body { margin: 0; font-family: system-ui; }")
+            ]);
+        var plans = new[]
+        {
+            new AgentFilePlan("index.html", Path.Combine(workspace, "index.html"), package.Files[0].Content, false),
+            new AgentFilePlan("styles\\site.css", Path.Combine(workspace, "styles", "site.css"), package.Files[1].Content, true)
+        };
+        var window = new AgentFileApprovalWindow(workspace, package, plans) { Owner = _panel };
+        _ = window.ShowDialog();
     }
 
     private async Task PresentResponseAsync(

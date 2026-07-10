@@ -124,6 +124,13 @@
         <TextBlock Text="VOICE ID" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
         <TextBox x:Name="VoiceInput" Margin="0,6,0,14" />
 
+        <TextBlock Text="AGENT WORKSPACE" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <Grid Margin="0,6,0,14">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+          <TextBox x:Name="AgentWorkspaceInput" Grid.Column="0" />
+          <Button Grid.Column="1" Content="Browse" Click="BrowseWorkspace" Background="#202221" Foreground="#60A5FA" BorderThickness="0" Padding="12,8" Margin="8,0,0,0" Cursor="Hand" />
+        </Grid>
+
         <Border Background="#171918" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="12">
           <TextBlock x:Name="StatusText" Text="Ready to configure." Foreground="{StaticResource Secondary}" TextWrapping="Wrap" FontSize="11" />
         </Border>

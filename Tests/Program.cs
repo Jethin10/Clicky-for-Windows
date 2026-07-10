@@ -70,6 +70,61 @@ if (!string.IsNullOrWhiteSpace(pdfFixture) && File.Exists(pdfFixture))
     Check(pdfContext.Text.Contains("second page confirms extraction order", StringComparison.OrdinalIgnoreCase), "PDF multi-page extraction");
 }
 
+var artifactResponse = """
+    built the page. [POINT:none]
+    [CLICKY_FILES]
+    {"summary":"A small webpage","files":[{"path":"index.html","content":"<h1>Hello Clicky</h1>"},{"path":"styles/site.css","content":"h1 { color: blue; }"}]}
+    [/CLICKY_FILES]
+    """;
+var artifact = AgentArtifactParser.Parse(artifactResponse);
+Check(artifact.Package?.Files.Count == 2, "agent artifact package parsing");
+Check(artifact.VisibleText.Contains("built the page", StringComparison.Ordinal), "agent artifact visible response");
+
+var workspaceService = new AgentWorkspaceService();
+var agentWorkspace = Path.Combine(Path.GetTempPath(), $"clicky-agent-{Guid.NewGuid():N}");
+Directory.CreateDirectory(agentWorkspace);
+try
+{
+    var package = artifact.Package!;
+    var plans = workspaceService.Plan(agentWorkspace, package);
+    Check(plans.Count == 2 && plans.All(plan => !plan.WillOverwrite), "agent create plan");
+    var writeResult = await workspaceService.ApplyAsync(agentWorkspace, plans, CancellationToken.None);
+    Check(File.ReadAllText(Path.Combine(agentWorkspace, "index.html")) == "<h1>Hello Clicky</h1>", "agent atomic file write");
+
+    var overwritePackage = new AgentArtifactPackage(
+        "Update page",
+        [new AgentFileArtifact("index.html", "<h1>Updated</h1>")]);
+    var overwritePlans = workspaceService.Plan(agentWorkspace, overwritePackage);
+    Check(overwritePlans.Single().WillOverwrite, "agent overwrite plan");
+    var overwriteResult = await workspaceService.ApplyAsync(agentWorkspace, overwritePlans, CancellationToken.None);
+    Check(File.ReadAllText(Path.Combine(agentWorkspace, "index.html")) == "<h1>Updated</h1>", "agent approved overwrite");
+    Check(File.Exists(Path.Combine(overwriteResult.BackupPath, "index.html")), "agent overwrite backup");
+    if (Directory.Exists(overwriteResult.BackupPath))
+    {
+        Directory.Delete(overwriteResult.BackupPath, recursive: true);
+    }
+
+    var traversalRejected = false;
+    try
+    {
+        _ = workspaceService.Plan(
+            agentWorkspace,
+            new AgentArtifactPackage("escape", [new AgentFileArtifact("../escape.txt", "blocked")]));
+    }
+    catch (InvalidOperationException)
+    {
+        traversalRejected = true;
+    }
+    Check(traversalRejected, "agent traversal rejection");
+}
+finally
+{
+    if (Directory.Exists(agentWorkspace))
+    {
+        Directory.Delete(agentWorkspace, recursive: true);
+    }
+}
+
 if (failures.Count == 0)
 {
     Console.WriteLine("Clicky smoke tests passed.");

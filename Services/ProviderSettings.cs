@@ -67,6 +67,12 @@ public sealed class ClickySettings
     public int Version { get; set; } = 1;
     public ProviderSettings Provider { get; set; } = new();
     public AudioSettings Audio { get; set; } = new();
+    public AgentSettings Agent { get; set; } = new();
+}
+
+public sealed class AgentSettings
+{
+    public string WorkspacePath { get; set; } = string.Empty;
 }
 
 public sealed class AudioSettings
