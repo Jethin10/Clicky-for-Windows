@@ -9,6 +9,7 @@ public sealed class TrayService : IDisposable
     private readonly Drawing.Icon _icon;
 
     public event Action? OpenRequested;
+    public event Action? SettingsRequested;
     public event Action? OverlayToggleRequested;
     public event Action? QuitRequested;
 
@@ -17,6 +18,7 @@ public sealed class TrayService : IDisposable
         _icon = CreateIcon();
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open Clicky", null, (_, _) => OpenRequested?.Invoke());
+        menu.Items.Add("AI provider settings", null, (_, _) => SettingsRequested?.Invoke());
         menu.Items.Add("Show / hide Clicky", null, (_, _) => OverlayToggleRequested?.Invoke());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit", null, (_, _) => QuitRequested?.Invoke());

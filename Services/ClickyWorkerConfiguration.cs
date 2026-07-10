@@ -1,9 +1,9 @@
 namespace Clicky.Windows.Services;
 
 /// <summary>
-/// The app never accepts raw provider keys. Set CLICKY_WORKER_URL to a Worker
-/// you own that implements the public Clicky /chat, /tts and /transcribe-token
-/// endpoints. Without it, the desktop shell remains local-only.
+/// Voice services use an owner-operated Worker configured through
+/// CLICKY_WORKER_URL. Direct model provider keys are handled separately by
+/// SecureCredentialStore and never pass through this configuration object.
 /// </summary>
 public sealed class ClickyWorkerConfiguration
 {

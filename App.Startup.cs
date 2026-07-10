@@ -24,6 +24,11 @@ public partial class App
             Environment.SetEnvironmentVariable("CLICKY_VISUAL_TEST_OVERLAY", "1", EnvironmentVariableTarget.Process);
         }
 
+        if (e.Args.Contains("--visual-test-settings", StringComparer.OrdinalIgnoreCase))
+        {
+            Environment.SetEnvironmentVariable("CLICKY_VISUAL_TEST_SETTINGS", "1", EnvironmentVariableTarget.Process);
+        }
+
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         _companionHost = new CompanionHost();

@@ -120,7 +120,25 @@
             <StackPanel x:Name="ReadyPanel" Visibility="Collapsed" Margin="0,0,0,0">
               <TextBlock Text="Hold Control+Alt to talk." Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="12" FontWeight="Medium" />
               <TextBlock x:Name="WorkerStatus" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" Margin="0,5,0,0" TextWrapping="Wrap" />
-              <Grid Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="SonnetButton" Grid.Column="0" Click="SelectSonnet" Style="{StaticResource QuietButton}" Background="#2563EB" Foreground="White" Padding="8,7" Content="Sonnet" FontSize="12" /><Button x:Name="OpusButton" Grid.Column="1" Click="SelectOpus" Style="{StaticResource QuietButton}" Background="#202221" Padding="8,7" Content="Opus" FontSize="12" /></Grid>
+              <Border Margin="0,16,0,0" Background="#171918" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="9" Padding="11">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock x:Name="ProviderNameText" Text="Private Worker" Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="12" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ProviderModelText" Text="claude-sonnet-4-6" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Click="OpenSettings" Style="{StaticResource QuietButton}" Background="#202221" Foreground="{StaticResource BlueLight}" Padding="9,6" Content="Configure" FontSize="11" />
+                </Grid>
+              </Border>
+              <TextBlock Text="ASK CLICKY" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" FontWeight="SemiBold" Margin="0,16,0,5" />
+              <TextBox x:Name="PromptInput" KeyDown="PromptKeyDown" Background="#171918" Foreground="{StaticResource Primary}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10,8" FontFamily="Segoe UI Variable" FontSize="12" TextWrapping="Wrap" MaxLength="2000" ToolTip="Ask about your screen or type an agent task" />
+              <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Click="SubmitPrompt" Style="{StaticResource QuietButton}" Background="#202221" Foreground="{StaticResource Secondary}" Padding="8,7" Content="Ask now" FontSize="11" Margin="0,0,4,0" />
+                <Button Grid.Column="1" Click="SubmitAgentPrompt" Style="{StaticResource QuietButton}" Background="#2563EB" Foreground="White" Padding="8,7" Content="Run agent" FontSize="11" Margin="4,0,0,0" />
+              </Grid>
+              <TextBlock x:Name="AgentStatusText" Text="No background tasks" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" TextWrapping="Wrap" Margin="0,7,0,0" />
+              <Grid x:Name="WorkerModelButtons" Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="SonnetButton" Grid.Column="0" Click="SelectSonnet" Style="{StaticResource QuietButton}" Background="#2563EB" Foreground="White" Padding="8,7" Content="Sonnet" FontSize="12" /><Button x:Name="OpusButton" Grid.Column="1" Click="SelectOpus" Style="{StaticResource QuietButton}" Background="#202221" Padding="8,7" Content="Opus" FontSize="12" /></Grid>
               <Button Click="OpenFeedback" Style="{StaticResource QuietButton}" Margin="0,16,0,0" HorizontalAlignment="Left" Padding="0" Content="DM Farza" Foreground="{StaticResource BlueLight}" FontSize="12" />
               <Button Click="ReplayOnboarding" Style="{StaticResource QuietButton}" Margin="0,10,0,0" HorizontalAlignment="Left" Padding="0" Content="Replay onboarding" Foreground="{StaticResource Tertiary}" FontSize="11" />
             </StackPanel>

@@ -19,25 +19,35 @@ public sealed class CompanionHost : IDisposable
     private readonly TrayService _trayService = new();
     private readonly CompanionPanelWindow _panel = new();
     private readonly ClickyWorkerConfiguration _worker = ClickyWorkerConfiguration.FromEnvironment();
+    private readonly SettingsService _settingsService = new();
+    private readonly SecureCredentialStore _credentialStore = new();
     private readonly List<ConversationTurn> _conversationHistory = [];
     private readonly object _sessionGate = new();
     private readonly List<PendingAudio> _bufferedAudio = [];
     private readonly SemaphoreSlim _audioSendGate = new(1, 1);
+    private readonly SemaphoreSlim _agentQueueGate = new(1, 1);
+    private readonly CancellationTokenSource _agentCancellation = new();
     private readonly ClaudeWorkerClient? _claude;
     private readonly ElevenLabsTtsPlayer? _tts;
+    private ClickySettings _settings;
+    private UniversalModelClient? _directModel;
 
     private AssemblyAiTranscriptionSession? _transcriptionSession;
     private Task? _transcriptionStartup;
     private CancellationTokenSource? _interactionCancellation;
     private bool _disposed;
+    private int _queuedAgentTasks;
 
     public CompanionHost()
     {
+        _settings = _settingsService.Load();
         if (_worker.IsConfigured)
         {
             _claude = new ClaudeWorkerClient(_worker);
             _tts = new ElevenLabsTtsPlayer(_worker);
         }
+
+        ReloadDirectProvider();
     }
 
     public void Start()
@@ -45,9 +55,12 @@ public sealed class CompanionHost : IDisposable
         _panel.StartRequested += StartOnboarding;
         _panel.ReplayRequested += StartOnboarding;
         _panel.ScreenRecordingRequested += ValidateScreenCapture;
+        _panel.SettingsRequested += OpenSettings;
         _panel.QuitRequested += Quit;
         _panel.ModelChanged += _ => { };
+        _panel.PromptSubmitted += HandleTypedPrompt;
         _panel.SetWorkerConfigured(_worker.IsConfigured);
+        RefreshProviderStatus();
         if (NativeMethods.IsVisualTest
             && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_READY"), "1", StringComparison.Ordinal))
         {
@@ -55,6 +68,7 @@ public sealed class CompanionHost : IDisposable
         }
 
         _trayService.OpenRequested += _panel.ShowPanel;
+        _trayService.SettingsRequested += OpenSettings;
         _trayService.OverlayToggleRequested += ToggleOverlay;
         _trayService.QuitRequested += Quit;
 
@@ -66,6 +80,12 @@ public sealed class CompanionHost : IDisposable
         _pushToTalk.Start();
 
         _panel.ShowPanel();
+        if (NativeMethods.IsVisualTest
+            && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_SETTINGS"), "1", StringComparison.Ordinal))
+        {
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(OpenSettings);
+        }
+
         if (NativeMethods.IsVisualTest
             && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_OVERLAY"), "1", StringComparison.Ordinal))
         {
@@ -244,9 +264,15 @@ public sealed class CompanionHost : IDisposable
             _overlayHost.SetState(InteractionState.Processing);
             _panel.SetVoiceState(InteractionState.Processing);
 
-            if (!_worker.IsConfigured || _claude is null || _tts is null)
+            if (!_worker.IsConfigured || _tts is null)
             {
-                ShowRecoverableMessage("set CLICKY_WORKER_URL to enable voice replies");
+                ShowRecoverableMessage("configure CLICKY_WORKER_URL for push-to-talk voice");
+                return;
+            }
+
+            if (_directModel is null && _claude is null)
+            {
+                ShowRecoverableMessage("configure an AI provider in Clicky settings");
                 return;
             }
 
@@ -291,13 +317,21 @@ public sealed class CompanionHost : IDisposable
                 return;
             }
 
-            var response = await _claude.AnalyzeAsync(
-                captures,
-                transcript,
-                _panel.SelectedModel,
-                _conversationHistory.TakeLast(10).ToList(),
-                onTextChunk: null,
-                cancellationToken);
+            var history = _conversationHistory.TakeLast(10).ToList();
+            var response = _directModel is not null
+                ? await _directModel.AnalyzeAsync(
+                    captures,
+                    transcript,
+                    history,
+                    onTextChunk: null,
+                    cancellationToken)
+                : await _claude!.AnalyzeAsync(
+                    captures,
+                    transcript,
+                    _panel.SelectedModel,
+                    history,
+                    onTextChunk: null,
+                    cancellationToken);
 
             var pointing = PointerTagParser.Parse(response);
             var spokenText = pointing.SpokenText;
@@ -382,6 +416,241 @@ public sealed class CompanionHost : IDisposable
         }
     }
 
+    private void HandleTypedPrompt(string prompt, bool agentMode)
+    {
+        if (agentMode)
+        {
+            _ = RunBackgroundAgentAsync(prompt, _agentCancellation.Token);
+        }
+        else
+        {
+            _ = CompleteTypedPromptAsync(prompt, _agentCancellation.Token);
+        }
+    }
+
+    private async Task<ProviderResponse?> AnalyzeConfiguredProviderAsync(
+        IReadOnlyList<CapturedScreen> captures,
+        string prompt,
+        IReadOnlyList<ConversationTurn> history,
+        bool isolatedClient,
+        CancellationToken cancellationToken)
+    {
+        if (_directModel is not null)
+        {
+            if (!isolatedClient)
+            {
+                return new ProviderResponse(
+                    await _directModel.AnalyzeAsync(captures, prompt, history, null, cancellationToken),
+                    _settings.Provider.DisplayName);
+            }
+
+            var settingsSnapshot = _settingsService.Load();
+            using var client = new UniversalModelClient(settingsSnapshot.Provider, _credentialStore.ReadApiKey());
+            return new ProviderResponse(
+                await client.AnalyzeAsync(captures, prompt, history, null, cancellationToken),
+                settingsSnapshot.Provider.DisplayName);
+        }
+
+        if (_claude is not null)
+        {
+            return new ProviderResponse(
+                await _claude.AnalyzeAsync(captures, prompt, _panel.SelectedModel, history, null, cancellationToken),
+                "Private Worker");
+        }
+
+        return null;
+    }
+
+    private async Task<IReadOnlyList<CapturedScreen>> CaptureCurrentScreensAsync(CancellationToken cancellationToken)
+    {
+        _overlayHost.Hide();
+        try
+        {
+            return await Task.Run(_screenCapture.CaptureAllScreens, cancellationToken);
+        }
+        finally
+        {
+            _overlayHost.Show();
+        }
+    }
+
+    private async Task CompleteTypedPromptAsync(string prompt, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _panel.SetVoiceState(InteractionState.Processing);
+            _panel.Hide();
+            _overlayHost.Show();
+            _overlayHost.SetState(InteractionState.Processing);
+            var captures = await CaptureCurrentScreensAsync(cancellationToken);
+            if (captures.Count == 0)
+            {
+                ShowRecoverableMessage("i couldn't read that screen");
+                return;
+            }
+
+            var response = await AnalyzeConfiguredProviderAsync(
+                captures,
+                prompt,
+                _conversationHistory.TakeLast(10).ToList(),
+                isolatedClient: false,
+                cancellationToken);
+            if (response is null)
+            {
+                ShowRecoverableMessage("configure an AI provider in Clicky settings");
+                return;
+            }
+
+            await PresentResponseAsync(prompt, response.Text, captures, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            ShowRecoverableMessage($"provider error: {ShortMessage(exception.Message)}");
+        }
+    }
+
+    private async Task RunBackgroundAgentAsync(string prompt, CancellationToken cancellationToken)
+    {
+        var queueEntered = false;
+        var queueCountCleared = false;
+        var queuePosition = Interlocked.Increment(ref _queuedAgentTasks);
+        Dispatch(() => _panel.SetAgentStatus(
+            queuePosition == 1 ? "Agent queued" : $"{queuePosition} agent tasks queued",
+            active: true));
+
+        try
+        {
+            var captures = await CaptureCurrentScreensAsync(cancellationToken);
+            await _agentQueueGate.WaitAsync(cancellationToken);
+            queueEntered = true;
+            Interlocked.Decrement(ref _queuedAgentTasks);
+            queueCountCleared = true;
+            Dispatch(() => _panel.SetAgentStatus("Agent working in the background...", active: true));
+
+            var agentPrompt = $"""
+                background agent request: {prompt}
+
+                complete the research, analysis, or artifact drafting that is possible with your available provider tools. do not claim to have edited files, sent messages, clicked controls, or completed external actions unless an actual tool result proves it. return the useful finished result, not a plan. [POINT:none]
+                """;
+            var response = await AnalyzeConfiguredProviderAsync(
+                captures,
+                agentPrompt,
+                history: [],
+                isolatedClient: true,
+                cancellationToken);
+            if (response is null)
+            {
+                Dispatch(() => _panel.SetAgentStatus("Agent needs an AI provider configuration", active: false));
+                return;
+            }
+
+            var result = PointerTagParser.Parse(response.Text).SpokenText;
+            Dispatch(() =>
+            {
+                _panel.SetAgentStatus($"Agent finished via {response.ProviderName}", active: false);
+                _overlayHost.Show();
+                _overlayHost.PointAt(GetCursorPoint(), result.Length > 180 ? result[..177] + "..." : result);
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            Dispatch(() => _panel.SetAgentStatus("Agent stopped", active: false));
+        }
+        catch (Exception exception)
+        {
+            Dispatch(() => _panel.SetAgentStatus($"Agent failed: {ShortMessage(exception.Message)}", active: false));
+        }
+        finally
+        {
+            if (!queueCountCleared)
+            {
+                Interlocked.Decrement(ref _queuedAgentTasks);
+            }
+
+            if (queueEntered)
+            {
+                _agentQueueGate.Release();
+            }
+        }
+    }
+
+    private async Task PresentResponseAsync(
+        string prompt,
+        string rawResponse,
+        IReadOnlyList<CapturedScreen> captures,
+        CancellationToken cancellationToken)
+    {
+        var pointing = PointerTagParser.Parse(rawResponse);
+        var text = pointing.SpokenText;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            ShowRecoverableMessage("i lost my words there");
+            return;
+        }
+
+        _conversationHistory.Add(new ConversationTurn(prompt, text));
+        if (_conversationHistory.Count > 10)
+        {
+            _conversationHistory.RemoveRange(0, _conversationHistory.Count - 10);
+        }
+
+        _overlayHost.Show();
+        _overlayHost.SetState(InteractionState.Responding);
+        _panel.SetVoiceState(InteractionState.Responding);
+        var target = PointerTagParser.MapToScreen(pointing, captures) ?? GetCursorPoint();
+        _overlayHost.PointAt(target, text);
+
+        if (_tts is not null)
+        {
+            await _tts.SpeakAsync(text, cancellationToken);
+            while (_tts.IsPlaying)
+            {
+                await Task.Delay(100, cancellationToken);
+            }
+        }
+
+        _overlayHost.SetState(InteractionState.Idle);
+        _panel.SetVoiceState(InteractionState.Idle);
+    }
+
+    private static string ShortMessage(string message) => message.Length <= 120 ? message : message[..117] + "...";
+
+    private void OpenSettings()
+    {
+        var window = new SettingsWindow(_settingsService, _credentialStore)
+        {
+            Owner = _panel
+        };
+        window.SettingsSaved += settings =>
+        {
+            _settings = settings;
+            ReloadDirectProvider();
+            RefreshProviderStatus();
+        };
+        _ = window.ShowDialog();
+    }
+
+    private void ReloadDirectProvider()
+    {
+        _directModel?.Dispose();
+        _directModel = null;
+
+        var apiKey = _credentialStore.ReadApiKey();
+        var presetAllowsNoKey = _settings.Provider.Preset is "Local" or "Custom";
+        if (_settings.Provider.IsConfigured && (presetAllowsNoKey || !string.IsNullOrWhiteSpace(apiKey)))
+        {
+            _directModel = new UniversalModelClient(_settings.Provider, apiKey);
+        }
+    }
+
+    private void RefreshProviderStatus()
+    {
+        _panel.SetProviderConfiguration(_settings.Provider, _directModel is not null, _worker.IsConfigured);
+    }
+
     private void OnMicrophoneFailure(Exception _)
     {
         Dispatch(() => ShowRecoverableMessage("microphone isn't available"));
@@ -425,15 +694,20 @@ public sealed class CompanionHost : IDisposable
         }
 
         _disposed = true;
+        _agentCancellation.Cancel();
         CancelInteraction();
         _pushToTalk.Dispose();
         _microphone.Dispose();
         _overlayHost.Dispose();
         _trayService.Dispose();
         _claude?.Dispose();
+        _directModel?.Dispose();
         _tts?.Dispose();
         _audioSendGate.Dispose();
+        _agentQueueGate.Dispose();
+        _agentCancellation.Dispose();
     }
 
     private sealed record PendingAudio(byte[] Bytes, float Level);
+    private sealed record ProviderResponse(string Text, string ProviderName);
 }

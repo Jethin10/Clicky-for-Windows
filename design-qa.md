@@ -71,7 +71,19 @@ Pass with two intentional Windows adaptations:
 ## Follow-up polish
 
 - [P3] Windows does not expose macOS's identical TCC permission surfaces. The four-row source flow is preserved, but Screen Content is represented as a Windows display-capture acknowledgement.
-- [P3] Add a signed installer and a dedicated user settings screen for managed Worker endpoints when distribution requirements are known.
+- [P3] Add a signed installer when distribution requirements and a signing identity are known.
+
+## Multi-provider and agent extension — 2026-07-10
+
+- Added a dedicated provider settings window with Windows Credential Manager storage, configurable base URL/protocol/model, and live model discovery.
+- Added OpenAI Responses, OpenAI-compatible Chat Completions, OpenRouter, MiMo, local, and custom endpoint paths.
+- Added typed screen-aware questions plus a serial background task queue with visible queued/running/completed states.
+- Added provider-specific web-search hooks for OpenAI Responses, OpenRouter plugins, and MiMo tools.
+- Re-rendered the expanded ready panel at 320×424. The new provider card, prompt field, paired actions, task status, and legacy controls remain readable without horizontal clipping.
+- Rendered the 460×620 provider settings window. The first pass exposed unreadable light-on-light native ComboBox text; the final pass uses dark selected text and is readable across provider, protocol, and model controls.
+- `dotnet build --no-restore -c Release` passed with zero warnings and zero errors after the extension.
+- The updated self-contained `win-x64` release publish passed and its executable remained running through the native visual-test launch.
+- Live paid-provider calls remain configuration-dependent and were not attempted without user-owned API credentials.
 
 ## Final result
 

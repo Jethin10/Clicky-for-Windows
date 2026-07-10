@@ -3,6 +3,7 @@ using Clicky.Windows.Native;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Forms = System.Windows.Forms;
@@ -42,8 +43,10 @@ public partial class CompanionPanelWindow : Window
     public event Action? StartRequested;
     public event Action? ReplayRequested;
     public event Action? ScreenRecordingRequested;
+    public event Action? SettingsRequested;
     public event Action? QuitRequested;
     public event Action<string>? ModelChanged;
+    public event Action<string, bool>? PromptSubmitted;
 
     public void SetWorkerConfigured(bool isConfigured)
     {
@@ -52,6 +55,34 @@ public partial class CompanionPanelWindow : Window
             : "local-only until CLICKY_WORKER_URL is configured";
         WorkerStatus.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
             isConfigured ? "#6B736F" : "#E59A40"));
+    }
+
+    public void SetProviderConfiguration(ProviderSettings provider, bool directProviderReady, bool workerConfigured)
+    {
+        if (directProviderReady)
+        {
+            ProviderNameText.Text = provider.DisplayName;
+            ProviderModelText.Text = provider.Model;
+            SelectedModel = provider.Model;
+            WorkerModelButtons.Visibility = Visibility.Collapsed;
+            WorkerStatus.Text = workerConfigured
+                ? "direct AI is ready; your private worker handles voice"
+                : "direct AI is ready; configure CLICKY_WORKER_URL for push-to-talk voice";
+            WorkerStatus.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+                workerConfigured ? "#6B736F" : "#E59A40"));
+            return;
+        }
+
+        ProviderNameText.Text = workerConfigured ? "Private Worker" : "No AI provider";
+        ProviderModelText.Text = workerConfigured ? SelectedModel : "Open Configure to connect one";
+        WorkerModelButtons.Visibility = workerConfigured ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public void SetAgentStatus(string status, bool active)
+    {
+        AgentStatusText.Text = status;
+        AgentStatusText.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+            active ? "#60A5FA" : "#6B736F"));
     }
 
     public void EnableVisualTestReadyState()
@@ -173,6 +204,33 @@ public partial class CompanionPanelWindow : Window
         OpusButton.Foreground = System.Windows.Media.Brushes.White;
         SonnetButton.Background = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#202221"));
         SonnetButton.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#ADB5B2"));
+    }
+
+    private void OpenSettings(object? sender, RoutedEventArgs eventArgs) => SettingsRequested?.Invoke();
+
+    private void SubmitPrompt(object? sender, RoutedEventArgs eventArgs) => DispatchPrompt(agentMode: false);
+
+    private void SubmitAgentPrompt(object? sender, RoutedEventArgs eventArgs) => DispatchPrompt(agentMode: true);
+
+    private void PromptKeyDown(object? sender, System.Windows.Input.KeyEventArgs eventArgs)
+    {
+        if (eventArgs.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            eventArgs.Handled = true;
+            DispatchPrompt(agentMode: false);
+        }
+    }
+
+    private void DispatchPrompt(bool agentMode)
+    {
+        var prompt = PromptInput.Text.Trim();
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return;
+        }
+
+        PromptInput.Clear();
+        PromptSubmitted?.Invoke(prompt, agentMode);
     }
 
     private void OpenFeedback(object? sender, RoutedEventArgs eventArgs)
