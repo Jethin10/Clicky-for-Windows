@@ -60,6 +60,14 @@ base URL and API key. Both keys stay in Windows Credential Manager. The default
 models are `gpt-4o-mini-transcribe` and `tts-1`, with the `alloy` voice; every
 field is configurable for compatible providers.
 
+Enable **Windows offline recognition and voice** to keep voice interactions
+working when a cloud transcription or speech request fails. If no cloud audio
+service is configured, Clicky can use this path directly. Recognition runs
+against the bounded PCM recording only after Ctrl+Alt is released; it does not
+enable ambient listening. Available recognizer languages and local voices come
+from Windows, are shown in settings, and can be selected explicitly or matched
+automatically to the current Windows UI language.
+
 Say **“HeyClicky agent, …”** during a Ctrl+Alt recording to route the spoken
 request into the background-agent queue. Ordinary speech remains an immediate
 screen-aware question.
@@ -145,7 +153,9 @@ dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release
 
 It covers spoken agent-command routing, WAV encoding, a loopback HTTP probe of
 the direct transcription endpoint and authentication header, provider audio
-configuration, pointer-tag parsing, text attachments, and optional multi-page
+configuration, real Windows offline recognition of synthesized 16 kHz PCM,
+cloud-failure fallback routing, local voice discovery/synthesis, pointer-tag
+parsing, text attachments, and optional multi-page
 PDF extraction through `CLICKY_TEST_PDF`, local image OCR, and optional true
 image-only PDF OCR through `CLICKY_TEST_SCANNED_PDF`. It also validates agent artifact JSON,
 path traversal rejection, atomic create/overwrite behavior, and overwrite

@@ -18,6 +18,8 @@ public sealed class CompanionHost : IDisposable
     private readonly DocumentContextService _documentContextService = new();
     private readonly AgentWorkspaceService _agentWorkspaceService = new();
     private readonly SmtpEmailService _smtpEmailService = new();
+    private readonly WindowsSpeechRecognitionService _localSpeechRecognition = new();
+    private readonly WindowsSpeechSynthesisService _localSpeechSynthesis = new();
     private readonly OverlayHost _overlayHost = new();
     private readonly TrayService _trayService = new();
     private readonly CompanionPanelWindow _panel = new();
@@ -206,7 +208,10 @@ public sealed class CompanionHost : IDisposable
         }
         catch (Exception)
         {
-            Dispatch(() => ShowRecoverableMessage("voice connection didn't start"));
+            if (!CanUseLocalSpeechRecognition())
+            {
+                Dispatch(() => ShowRecoverableMessage("voice connection didn't start"));
+            }
         }
     }
 
@@ -302,9 +307,9 @@ public sealed class CompanionHost : IDisposable
             _overlayHost.SetState(InteractionState.Processing);
             _panel.SetVoiceState(InteractionState.Processing);
 
-            if (_directAudio is null && !_worker.IsConfigured)
+            if (_directAudio is null && !_worker.IsConfigured && !CanUseLocalSpeechRecognition())
             {
-                ShowRecoverableMessage("enable direct voice or configure CLICKY_WORKER_URL");
+                ShowRecoverableMessage("enable direct voice, configure CLICKY_WORKER_URL, or install Windows speech recognition");
                 return;
             }
 
@@ -314,44 +319,17 @@ public sealed class CompanionHost : IDisposable
                 return;
             }
 
-            string transcript;
-            if (_directAudio is not null)
+            // WaveInEvent can deliver its final buffer immediately after
+            // StopRecording; give that callback one dispatcher turn.
+            await Task.Delay(80, cancellationToken);
+            var recordedPcm = TakeRecordedPcm();
+            if (recordedPcm.Length < 1_600)
             {
-                // WaveInEvent can deliver its final buffer immediately after
-                // StopRecording; give that callback one dispatcher turn.
-                await Task.Delay(80, cancellationToken);
-                var recordedPcm = TakeRecordedPcm();
-                if (recordedPcm.Length < 1_600)
-                {
-                    ShowRecoverableMessage("i didn't catch that");
-                    return;
-                }
-
-                transcript = await _directAudio.TranscribeAsync(recordedPcm, cancellationToken);
+                ShowRecoverableMessage("i didn't catch that");
+                return;
             }
-            else
-            {
-                if (_transcriptionStartup is not null)
-                {
-                    await _transcriptionStartup.WaitAsync(TimeSpan.FromSeconds(14), cancellationToken);
-                }
 
-                var session = TakeTranscriptionSession();
-                if (session is null)
-                {
-                    ShowRecoverableMessage("voice connection wasn't ready");
-                    return;
-                }
-
-                try
-                {
-                    transcript = await session.FinalizeAsync(cancellationToken);
-                }
-                finally
-                {
-                    await session.DisposeAsync();
-                }
-            }
+            var transcript = await TranscribeWithFallbackAsync(recordedPcm, cancellationToken);
 
             if (string.IsNullOrWhiteSpace(transcript))
             {
@@ -450,6 +428,48 @@ public sealed class CompanionHost : IDisposable
             }
         }
     }
+
+    private async Task<string> TranscribeWithFallbackAsync(byte[] recordedPcm, CancellationToken cancellationToken)
+    {
+        return await TranscriptionFallbackPolicy.ExecuteAsync(
+            TranscribePrimaryAsync,
+            token => _localSpeechRecognition.RecognizePcm16Async(
+                recordedPcm,
+                _settings.Audio.WindowsSpeechCulture,
+                token),
+            CanUseLocalSpeechRecognition(),
+            cancellationToken);
+
+        async Task<string> TranscribePrimaryAsync(CancellationToken token)
+        {
+            if (_directAudio is not null)
+            {
+                return await _directAudio.TranscribeAsync(recordedPcm, token);
+            }
+            if (_worker.IsConfigured)
+            {
+                if (_transcriptionStartup is not null)
+                {
+                    await _transcriptionStartup.WaitAsync(TimeSpan.FromSeconds(14), token);
+                }
+
+                var session = TakeTranscriptionSession()
+                    ?? throw new InvalidOperationException("Voice connection wasn't ready.");
+                try
+                {
+                    return await session.FinalizeAsync(token);
+                }
+                finally
+                {
+                    await session.DisposeAsync();
+                }
+            }
+            return string.Empty;
+        }
+    }
+
+    private bool CanUseLocalSpeechRecognition() =>
+        _settings.Audio.EnableWindowsSpeechFallback && WindowsSpeechRecognitionService.IsAvailable;
 
     private AssemblyAiTranscriptionSession? TakeTranscriptionSession()
     {
@@ -882,6 +902,7 @@ public sealed class CompanionHost : IDisposable
 
     private async Task SpeakConfiguredAsync(string text, CancellationToken cancellationToken)
     {
+        Exception? cloudFailure = null;
         if (_directAudio is not null)
         {
             try
@@ -893,19 +914,46 @@ public sealed class CompanionHost : IDisposable
                 }
                 return;
             }
-            catch when (_tts is not null && !cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
-                // Fall back to the owner-operated Worker voice when available.
+                throw;
+            }
+            catch (Exception exception)
+            {
+                cloudFailure = exception;
             }
         }
 
         if (_tts is not null)
         {
-            await _tts.SpeakAsync(text, cancellationToken);
-            while (_tts.IsPlaying)
+            try
             {
-                await Task.Delay(100, cancellationToken);
+                await _tts.SpeakAsync(text, cancellationToken);
+                while (_tts.IsPlaying)
+                {
+                    await Task.Delay(100, cancellationToken);
+                }
+                return;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                cloudFailure = exception;
+            }
+        }
+
+        if (_settings.Audio.EnableWindowsSpeechFallback && WindowsSpeechSynthesisService.IsAvailable)
+        {
+            await _localSpeechSynthesis.SpeakAsync(text, _settings.Audio.WindowsSpeechCulture, cancellationToken);
+            return;
+        }
+
+        if (cloudFailure is not null)
+        {
+            throw new InvalidOperationException($"Cloud and Windows voice output failed: {cloudFailure.Message}", cloudFailure);
         }
     }
 
@@ -955,7 +1003,8 @@ public sealed class CompanionHost : IDisposable
             _settings.Provider,
             _directModel is not null,
             _worker.IsConfigured,
-            _directAudio is not null);
+            _directAudio is not null,
+            CanUseLocalSpeechRecognition() && _settings.Audio.EnableWindowsSpeechFallback && WindowsSpeechSynthesisService.IsAvailable);
     }
 
     private void OnMicrophoneFailure(Exception _)

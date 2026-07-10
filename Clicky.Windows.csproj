@@ -24,6 +24,7 @@
     <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="PDFtoImage" Version="5.2.1" />
     <PackageReference Include="TesseractOCR" Version="5.5.2" />
+    <PackageReference Include="System.Speech" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>

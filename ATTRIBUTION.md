@@ -19,3 +19,7 @@ is backed by PDFium and SkiaSharp. Their package licenses and notices remain in
 the restored NuGet packages and published dependency metadata. The bundled
 `eng.traineddata` asset has SHA-256
 `7D4322BD2A7749724879683FC3912CB542F19906C83BCC1A52132556427170B2`.
+
+Windows offline speech uses Microsoft's `System.Speech` package and the speech
+recognizers and text-to-speech voices installed in Windows. No speech model is
+downloaded or redistributed by this project.

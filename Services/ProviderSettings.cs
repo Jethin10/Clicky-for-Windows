@@ -104,6 +104,8 @@ public sealed class EmailSettings
 public sealed class AudioSettings
 {
     public bool Enabled { get; set; } = true;
+    public bool EnableWindowsSpeechFallback { get; set; } = true;
+    public string WindowsSpeechCulture { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = string.Empty;
     public string TranscriptionModel { get; set; } = "gpt-4o-mini-transcribe";
     public string SpeechModel { get; set; } = "tts-1";

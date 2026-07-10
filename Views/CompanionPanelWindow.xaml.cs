@@ -63,7 +63,8 @@ public partial class CompanionPanelWindow : Window
         ProviderSettings provider,
         bool directProviderReady,
         bool workerConfigured,
-        bool directAudioReady)
+        bool directAudioReady,
+        bool windowsSpeechReady)
     {
         if (directProviderReady)
         {
@@ -75,9 +76,11 @@ public partial class CompanionPanelWindow : Window
                 ? "direct AI, transcription, and speech are ready"
                 : workerConfigured
                     ? "direct AI is ready; your private worker handles voice"
-                    : "direct AI is ready; enable compatible voice endpoints";
+                    : windowsSpeechReady
+                        ? "direct AI is ready; Windows offline voice is ready"
+                        : "direct AI is ready; enable compatible voice endpoints";
             WorkerStatus.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
-                directAudioReady || workerConfigured ? "#6B736F" : "#E59A40"));
+                directAudioReady || workerConfigured || windowsSpeechReady ? "#6B736F" : "#E59A40"));
             return;
         }
 

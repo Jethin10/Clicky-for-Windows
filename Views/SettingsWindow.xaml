@@ -96,6 +96,13 @@
         <TextBlock Text="VOICE" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" Margin="0,4,0,6" />
         <CheckBox x:Name="DirectAudioCheck" Content="Use OpenAI-compatible transcription and speech endpoints"
                   Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,10" />
+        <CheckBox x:Name="LocalSpeechCheck" Content="Fall back to Windows offline recognition and voice"
+                  Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,8" />
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <ComboBox x:Name="LocalSpeechCultureBox" Grid.Column="0" />
+          <TextBlock x:Name="LocalSpeechStatus" Grid.Column="1" Margin="10,0,0,0" Foreground="{StaticResource Tertiary}" FontSize="10" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </Grid>
 
         <TextBlock Text="AUDIO BASE URL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
         <TextBox x:Name="AudioBaseUrlInput" Margin="0,6,0,4" />

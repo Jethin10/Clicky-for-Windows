@@ -1,6 +1,8 @@
 using Clicky.Windows.Services;
 using System.Net;
 using System.Net.Sockets;
+using System.Speech.AudioFormat;
+using System.Speech.Synthesis;
 using System.Text;
 using Drawing = System.Drawing;
 
@@ -35,6 +37,69 @@ var provider = ProviderSettings.FromPreset("OpenAI");
 var audio = new AudioSettings();
 Check(audio.IsConfigured(provider), "default direct-audio settings");
 Check(audio.EffectiveBaseUrl(provider) == provider.BaseUrl, "audio inherits provider base URL");
+Check(audio.EnableWindowsSpeechFallback, "Windows speech fallback enabled by default");
+
+var localRecognizers = WindowsSpeechRecognitionService.InstalledRecognizers();
+var localVoices = WindowsSpeechSynthesisService.InstalledVoices();
+Check(localVoices.Count > 0, "Windows local speech voice discovery");
+if (localRecognizers.Count > 0)
+{
+    using var speechWave = new MemoryStream();
+    using (var synthesizer = new SpeechSynthesizer())
+    {
+        synthesizer.SetOutputToWaveStream(speechWave);
+        synthesizer.Speak("Clicky local speech verification");
+    }
+    Check(speechWave.Length > 44, "Windows local speech synthesis WAV output");
+    var localTranscript = await new WindowsSpeechRecognitionService().RecognizeWaveAsync(
+        speechWave.ToArray(),
+        localRecognizers[0].Culture,
+        CancellationToken.None);
+    Console.WriteLine($"Windows offline speech transcript ({localRecognizers[0].Culture}): {localTranscript}");
+    Check(localTranscript.Contains("local speech verification", StringComparison.OrdinalIgnoreCase), "Windows offline speech recognition");
+
+    using var rawPcm = new MemoryStream();
+    using (var synthesizer = new SpeechSynthesizer())
+    {
+        synthesizer.SetOutputToAudioStream(
+            rawPcm,
+            new SpeechAudioFormatInfo(16_000, AudioBitsPerSample.Sixteen, AudioChannel.Mono));
+        synthesizer.Speak("Windows PCM fallback verification");
+    }
+    var pcmTranscript = await new WindowsSpeechRecognitionService().RecognizePcm16Async(
+        rawPcm.ToArray(),
+        localRecognizers[0].Culture,
+        CancellationToken.None);
+    Check(pcmTranscript.Contains("fallback verification", StringComparison.OrdinalIgnoreCase), "recorded PCM Windows speech fallback");
+}
+else
+{
+    Console.WriteLine("Windows offline speech recognition test skipped: no recognizer language is installed.");
+}
+
+var fallbackInvoked = false;
+var fallbackTranscript = await TranscriptionFallbackPolicy.ExecuteAsync(
+    _ => Task.FromException<string>(new HttpRequestException("offline probe")),
+    _ =>
+    {
+        fallbackInvoked = true;
+        return Task.FromResult("local fallback transcript");
+    },
+    fallbackEnabled: true,
+    CancellationToken.None);
+Check(fallbackInvoked && fallbackTranscript == "local fallback transcript", "failed cloud transcription uses local fallback");
+
+fallbackInvoked = false;
+var primaryTranscript = await TranscriptionFallbackPolicy.ExecuteAsync(
+    _ => Task.FromResult("cloud transcript"),
+    _ =>
+    {
+        fallbackInvoked = true;
+        return Task.FromResult("unexpected fallback");
+    },
+    fallbackEnabled: true,
+    CancellationToken.None);
+Check(!fallbackInvoked && primaryTranscript == "cloud transcript", "successful cloud transcription remains primary");
 
 var transcriptionProbe = await ProbeTranscriptionEndpointAsync();
 Check(transcriptionProbe.Transcript == "voice agent test", "direct transcription response parsing");

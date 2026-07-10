@@ -114,6 +114,21 @@ Pass with two intentional Windows adaptations:
 
 ## Final result
 
+## Windows offline speech fallback — 2026-07-11
+
+- Added Windows Desktop Speech recognition as a local-only fallback for failed,
+  empty, or unconfigured cloud transcription.
+- Added Windows text-to-speech as the final voice-output fallback after direct
+  and Worker speech services.
+- Recognition consumes only the existing bounded push-to-talk PCM recording
+  after key release; no ambient recognition service was introduced.
+- Rendered the focused settings state with three installed offline recognizers,
+  sixteen local voices, automatic language selection, and voice controls
+  readable without clipping.
+- Synthesized a deterministic 16 kHz mono phrase, passed its raw PCM through the
+  production recognition method, and verified cloud-success and cloud-failure
+  routing independently.
+
 ## Local scanned-document OCR — 2026-07-11
 
 - Added local OCR for image attachments and pages without selectable PDF text.

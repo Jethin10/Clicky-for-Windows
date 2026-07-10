@@ -27,6 +27,15 @@ public partial class SettingsWindow : Window
         PresetBox.ItemsSource = new[] { "OpenAI", "OpenRouter", "MiMo", "Local", "Custom" };
         ProtocolBox.ItemsSource = Enum.GetValues<ProviderProtocol>();
         SmtpSecurityBox.ItemsSource = Enum.GetValues<SmtpSecurityMode>();
+        var localRecognizers = WindowsSpeechRecognitionService.InstalledRecognizers();
+        var localVoices = WindowsSpeechSynthesisService.InstalledVoices();
+        LocalSpeechCultureBox.ItemsSource = new[] { "Automatic" }
+            .Concat(localRecognizers.Select(item => item.Culture))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        LocalSpeechStatus.Text = localRecognizers.Count == 0
+            ? $"No offline recognizer; {localVoices.Count} local voice{(localVoices.Count == 1 ? string.Empty : "s")}."
+            : $"{localRecognizers.Count} offline recognizer{(localRecognizers.Count == 1 ? string.Empty : "s")}; {localVoices.Count} local voice{(localVoices.Count == 1 ? string.Empty : "s")}.";
         var currentSettings = _settingsService.Load();
         var currentProvider = currentSettings.Provider;
         _safetyIdentifier = currentProvider.SafetyIdentifier;
@@ -58,6 +67,11 @@ public partial class SettingsWindow : Window
                 SettingsScroll.ScrollToEnd();
                 UpdateLayout();
             }
+            else if (string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_SETTINGS_LOCAL_SPEECH"), "1", StringComparison.Ordinal))
+            {
+                SettingsScroll.ScrollToVerticalOffset(440);
+                UpdateLayout();
+            }
             WriteVisualTestSnapshot();
         };
     }
@@ -78,6 +92,14 @@ public partial class SettingsWindow : Window
     private void ApplyAudio(AudioSettings audio)
     {
         DirectAudioCheck.IsChecked = audio.Enabled;
+        LocalSpeechCheck.IsChecked = audio.EnableWindowsSpeechFallback;
+        LocalSpeechCultureBox.SelectedItem = string.IsNullOrWhiteSpace(audio.WindowsSpeechCulture)
+            ? "Automatic"
+            : audio.WindowsSpeechCulture;
+        if (LocalSpeechCultureBox.SelectedIndex < 0)
+        {
+            LocalSpeechCultureBox.SelectedIndex = 0;
+        }
         AudioBaseUrlInput.Text = audio.BaseUrl;
         TranscriptionModelInput.Text = audio.TranscriptionModel;
         SpeechModelInput.Text = audio.SpeechModel;
@@ -120,6 +142,10 @@ public partial class SettingsWindow : Window
     private AudioSettings ReadAudio() => new()
     {
         Enabled = DirectAudioCheck.IsChecked == true,
+        EnableWindowsSpeechFallback = LocalSpeechCheck.IsChecked == true,
+        WindowsSpeechCulture = LocalSpeechCultureBox.SelectedItem is string culture && culture != "Automatic"
+            ? culture
+            : string.Empty,
         BaseUrl = AudioBaseUrlInput.Text.Trim(),
         TranscriptionModel = TranscriptionModelInput.Text.Trim(),
         SpeechModel = SpeechModelInput.Text.Trim(),
