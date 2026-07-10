@@ -61,6 +61,24 @@ finally
     File.Delete(textFixture);
 }
 
+var imageFixture = Path.Combine(Path.GetTempPath(), $"clicky-ocr-{Guid.NewGuid():N}.png");
+try
+{
+    using var bitmap = new Drawing.Bitmap(1_600, 420);
+    using var graphics = Drawing.Graphics.FromImage(bitmap);
+    graphics.Clear(Drawing.Color.White);
+    using var font = new Drawing.Font("Arial", 64, Drawing.FontStyle.Bold, Drawing.GraphicsUnit.Pixel);
+    graphics.DrawString("Clicky local OCR verification 2026", font, Drawing.Brushes.Black, new Drawing.PointF(45, 120));
+    bitmap.Save(imageFixture, Drawing.Imaging.ImageFormat.Png);
+    var imageContext = await documentService.ExtractAsync(imageFixture, CancellationToken.None);
+    Check(imageContext.Text.Contains("Clicky local OCR verification", StringComparison.OrdinalIgnoreCase), "local image OCR extraction");
+    Check(imageContext.UsedLocalOcr, "local image OCR provenance");
+}
+finally
+{
+    File.Delete(imageFixture);
+}
+
 var pdfFixture = Environment.GetEnvironmentVariable("CLICKY_TEST_PDF");
 if (!string.IsNullOrWhiteSpace(pdfFixture) && File.Exists(pdfFixture))
 {
@@ -68,6 +86,26 @@ if (!string.IsNullOrWhiteSpace(pdfFixture) && File.Exists(pdfFixture))
     Check(pdfContext.PageCount == 2, "PDF page count");
     Check(pdfContext.Text.Contains("Clicky PDF verification", StringComparison.Ordinal), "PDF text extraction");
     Check(pdfContext.Text.Contains("second page confirms extraction order", StringComparison.OrdinalIgnoreCase), "PDF multi-page extraction");
+}
+
+
+var scannedPdfFixture = Environment.GetEnvironmentVariable("CLICKY_TEST_SCANNED_PDF");
+if (!string.IsNullOrWhiteSpace(scannedPdfFixture) && File.Exists(scannedPdfFixture))
+{
+    var scannedContext = await documentService.ExtractAsync(scannedPdfFixture, CancellationToken.None);
+    Check(scannedContext.Text.Contains("Scanned Clicky verification", StringComparison.OrdinalIgnoreCase), "scanned PDF local OCR extraction");
+    Check(scannedContext.Text.Contains("local OCR", StringComparison.OrdinalIgnoreCase), "scanned PDF OCR provenance marker");
+    Check(scannedContext.UsedLocalOcr, "scanned PDF OCR provenance state");
+}
+
+var mixedPdfFixture = Environment.GetEnvironmentVariable("CLICKY_TEST_MIXED_PDF");
+if (!string.IsNullOrWhiteSpace(mixedPdfFixture) && File.Exists(mixedPdfFixture))
+{
+    var mixedContext = await documentService.ExtractAsync(mixedPdfFixture, CancellationToken.None);
+    var selectableIndex = mixedContext.Text.IndexOf("Selectable first page", StringComparison.OrdinalIgnoreCase);
+    var scannedIndex = mixedContext.Text.IndexOf("Scanned second page", StringComparison.OrdinalIgnoreCase);
+    Check(selectableIndex >= 0 && scannedIndex > selectableIndex, "mixed PDF original page order");
+    Check(mixedContext.Text.Contains("[page 2, local OCR]", StringComparison.OrdinalIgnoreCase), "mixed PDF OCR page marker");
 }
 
 var artifactResponse = """

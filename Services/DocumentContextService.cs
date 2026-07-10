@@ -11,6 +11,10 @@ public sealed class DocumentContextService
     {
         ".txt", ".md", ".json", ".csv", ".log", ".cs", ".xaml", ".xml", ".html", ".css", ".js", ".ts", ".py"
     };
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"
+    };
 
     public async Task<DocumentContext> ExtractAsync(string path, CancellationToken cancellationToken)
     {
@@ -29,7 +33,9 @@ public sealed class DocumentContextService
             ? await Task.Run(() => ExtractPdf(file, cancellationToken), cancellationToken)
             : TextExtensions.Contains(extension)
                 ? await ExtractTextAsync(file, cancellationToken)
-                : throw new NotSupportedException("Attach a PDF or a supported text/code file.");
+                : ImageExtensions.Contains(extension)
+                    ? await Task.Run(() => ExtractImage(file, cancellationToken), cancellationToken)
+                    : throw new NotSupportedException("Attach a PDF, image, or supported text/code file.");
     }
 
     public static string AddToPrompt(string prompt, DocumentContext? document)
@@ -54,20 +60,59 @@ public sealed class DocumentContextService
 
     private static DocumentContext ExtractPdf(FileInfo file, CancellationToken cancellationToken)
     {
-        using var document = PdfDocument.Open(file.FullName);
+        string?[] pageTexts;
+        bool[] pageWasOcr;
+        int pageCount;
+        using (var document = PdfDocument.Open(file.FullName))
+        {
+            pageCount = document.NumberOfPages;
+            pageTexts = new string?[pageCount];
+            pageWasOcr = new bool[pageCount];
+            foreach (var page in document.GetPages())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var text = ContentOrderTextExtractor.GetText(page).Trim();
+                pageTexts[page.Number - 1] = string.IsNullOrWhiteSpace(text) ? null : text;
+            }
+        }
+
+        var pagesNeedingOcr = pageTexts.Count(text => string.IsNullOrWhiteSpace(text));
+        if (pagesNeedingOcr > 0)
+        {
+            if (pagesNeedingOcr > LocalOcrService.MaximumOcrPages)
+            {
+                throw new InvalidOperationException($"Scanned PDFs are limited to {LocalOcrService.MaximumOcrPages} OCR pages per attachment.");
+            }
+
+            using var ocr = new LocalOcrService();
+            for (var index = 0; index < pageTexts.Length; index++)
+            {
+                if (!string.IsNullOrWhiteSpace(pageTexts[index]))
+                {
+                    continue;
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+                var text = ocr.RecognizePdfPage(file.FullName, index, cancellationToken);
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    continue;
+                }
+                pageTexts[index] = text;
+                pageWasOcr[index] = true;
+            }
+        }
+
         var builder = new StringBuilder();
         var truncated = false;
-        foreach (var page in document.GetPages())
+        for (var index = 0; index < pageTexts.Length; index++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var text = ContentOrderTextExtractor.GetText(page).Trim();
+            var text = pageTexts[index];
             if (string.IsNullOrWhiteSpace(text))
             {
                 continue;
             }
-
-            var heading = $"\n\n[page {page.Number}]\n";
-            if (!TryAppendBounded(builder, heading + text, out truncated))
+            var provenance = pageWasOcr[index] ? ", local OCR" : string.Empty;
+            if (!TryAppendBounded(builder, $"\n\n[page {index + 1}{provenance}]\n{text}", out truncated))
             {
                 break;
             }
@@ -75,10 +120,27 @@ public sealed class DocumentContextService
 
         if (builder.Length == 0)
         {
-            throw new InvalidOperationException("No selectable text was found in this PDF. Scanned PDFs need OCR support.");
+            throw new InvalidOperationException("No readable text was found in this PDF after local OCR.");
         }
 
-        return new DocumentContext(file.FullName, file.Name, builder.ToString().Trim(), document.NumberOfPages, truncated);
+        return new DocumentContext(file.FullName, file.Name, builder.ToString().Trim(), pageCount, truncated, pageWasOcr.Any(value => value));
+    }
+
+    private static DocumentContext ExtractImage(FileInfo file, CancellationToken cancellationToken)
+    {
+        using var ocr = new LocalOcrService();
+        var text = ocr.RecognizeImage(file.FullName, cancellationToken);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new InvalidOperationException("No readable text was found in this image after local OCR.");
+        }
+
+        var truncated = text.Length > MaximumExtractedCharacters;
+        if (truncated)
+        {
+            text = text[..MaximumExtractedCharacters];
+        }
+        return new DocumentContext(file.FullName, file.Name, text, 1, truncated, true);
     }
 
     private static async Task<DocumentContext> ExtractTextAsync(FileInfo file, CancellationToken cancellationToken)
@@ -132,4 +194,5 @@ public sealed record DocumentContext(
     string FileName,
     string Text,
     int? PageCount,
-    bool WasTruncated);
+    bool WasTruncated,
+    bool UsedLocalOcr = false);

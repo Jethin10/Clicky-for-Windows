@@ -114,6 +114,18 @@ Pass with two intentional Windows adaptations:
 
 ## Final result
 
+## Local scanned-document OCR — 2026-07-11
+
+- Added local OCR for image attachments and pages without selectable PDF text.
+- Preserved page order for mixed searchable/scanned PDFs and labeled OCR-derived
+  pages in model context.
+- Bundled English OCR data so recognition never needs a document upload or a
+  runtime model download.
+- Verified a generated pixels-only PDF had no selectable text, visually
+  inspected its rendered page, and recovered its expected phrases in the smoke
+  suite.
+- Added 25 MB, 120,000-character, and 50 scanned-page safety limits.
+
 ## Approval-gated email delivery — 2026-07-11
 
 - Added bounded email proposals with validated To/Cc recipients, subject, and

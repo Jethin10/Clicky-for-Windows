@@ -118,18 +118,20 @@ mail provider permits one.
 
 ## Local documents and PDFs
 
-Choose **Attach file** in the Clicky panel to add a PDF or supported text/code
-file to the next questions and agent tasks. Extraction happens locally when the
-file is selected; content is sent to the configured model only after you submit
-a request.
+Choose **Attach file** in the Clicky panel to add a PDF, image, or supported
+text/code file to the next questions and agent tasks. Extraction happens
+locally when the file is selected; content is sent to the configured model only
+after you submit a request.
 
-- PDF text is extracted page by page in reading order.
+- PDF text is extracted page by page in reading order. Pages without selectable
+  text are rendered locally at 200 DPI and read with bundled English Tesseract
+  OCR; mixed searchable/scanned PDFs retain their original page order.
+- PNG, JPEG, BMP, GIF, TIFF, and WebP images can be attached for local OCR.
 - Text, Markdown, JSON, CSV, logs, C#, XAML, XML, HTML, CSS, JavaScript,
   TypeScript, and Python files are supported.
 - Files are limited to 25 MB and extracted context is bounded to 120,000
   characters.
-- Scanned image-only PDFs report that OCR is required instead of silently
-  returning empty content.
+- OCR is capped at 50 scanned pages per attachment to bound CPU and memory use.
 - The attachment remains available for follow-up questions until **Remove** is
   selected.
 
@@ -144,7 +146,8 @@ dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release
 It covers spoken agent-command routing, WAV encoding, a loopback HTTP probe of
 the direct transcription endpoint and authentication header, provider audio
 configuration, pointer-tag parsing, text attachments, and optional multi-page
-PDF extraction through `CLICKY_TEST_PDF`. It also validates agent artifact JSON,
+PDF extraction through `CLICKY_TEST_PDF`, local image OCR, and optional true
+image-only PDF OCR through `CLICKY_TEST_SCANNED_PDF`. It also validates agent artifact JSON,
 path traversal rejection, atomic create/overwrite behavior, and overwrite
 backups. Email tests cover proposal validation and a real MailKit delivery to a
 local loopback SMTP server without sending mail externally.

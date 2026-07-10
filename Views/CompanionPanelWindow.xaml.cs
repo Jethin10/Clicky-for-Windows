@@ -116,7 +116,11 @@ public partial class CompanionPanelWindow : Window
         RefreshLayout();
         if (string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_ATTACHMENT"), "1", StringComparison.Ordinal))
         {
-            SetAttachmentStatus("clicky-verification.pdf", "2 pages, 314 characters", visible: true);
+            var ocr = string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_OCR_ATTACHMENT"), "1", StringComparison.Ordinal);
+            SetAttachmentStatus(
+                ocr ? "scanned-project-brief.pdf" : "clicky-verification.pdf",
+                ocr ? "3 pages, 1,842 characters (local OCR)" : "2 pages, 314 characters",
+                visible: true);
         }
     }
 

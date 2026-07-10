@@ -517,7 +517,7 @@ public sealed class CompanionHost : IDisposable
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Attach a document to Clicky",
-            Filter = "Documents (*.pdf;*.txt;*.md;*.json;*.csv;*.log;*.cs;*.xaml;*.xml;*.html;*.css;*.js;*.ts;*.py)|*.pdf;*.txt;*.md;*.json;*.csv;*.log;*.cs;*.xaml;*.xml;*.html;*.css;*.js;*.ts;*.py|All files (*.*)|*.*",
+            Filter = "Documents and images (*.pdf;*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff;*.webp;*.txt;*.md;*.json;*.csv;*.log;*.cs;*.xaml;*.xml;*.html;*.css;*.js;*.ts;*.py)|*.pdf;*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff;*.webp;*.txt;*.md;*.json;*.csv;*.log;*.cs;*.xaml;*.xml;*.html;*.css;*.js;*.ts;*.py|All files (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false
         };
@@ -538,6 +538,10 @@ public sealed class CompanionHost : IDisposable
             if (context.WasTruncated)
             {
                 detail += ", safely truncated";
+            }
+            if (context.UsedLocalOcr)
+            {
+                detail += ", local OCR";
             }
             _panel.SetAttachmentStatus(context.FileName, detail, visible: true);
         }

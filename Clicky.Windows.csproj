@@ -13,10 +13,17 @@
     <AssemblyName>Clicky.Windows</AssemblyName>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="PdfPig" Version="0.1.15" />
     <PackageReference Include="MailKit" Version="4.17.0" />
+    <PackageReference Include="PDFtoImage" Version="5.2.1" />
+    <PackageReference Include="TesseractOCR" Version="5.5.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,6 +34,11 @@
     <None Update="ATTRIBUTION.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="UPSTREAM_LICENSE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Assets\tessdata\eng.traineddata" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="RemoveThirdPartyPublishSymbols" AfterTargets="Publish">
+    <Delete Files="$(PublishDir)libSkiaSharp.pdb" Condition="Exists('$(PublishDir)libSkiaSharp.pdb')" />
+  </Target>
 
 </Project>
