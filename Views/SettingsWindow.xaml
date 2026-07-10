@@ -60,7 +60,7 @@
                  Foreground="{StaticResource Secondary}" TextWrapping="Wrap" Margin="0,7,0,0" FontSize="12" />
     </StackPanel>
 
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,22,0,16">
+    <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,22,0,16">
       <StackPanel>
         <TextBlock Text="PROVIDER PRESET" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
         <ComboBox x:Name="PresetBox" SelectionChanged="PresetChanged" Margin="0,6,0,14" />
@@ -92,6 +92,37 @@
                   Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,8" />
         <CheckBox x:Name="WebSearchCheck" Content="Allow this provider's web-search tool for agent requests"
                   Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,14" />
+
+        <TextBlock Text="VOICE" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" Margin="0,4,0,6" />
+        <CheckBox x:Name="DirectAudioCheck" Content="Use OpenAI-compatible transcription and speech endpoints"
+                  Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,10" />
+
+        <TextBlock Text="AUDIO BASE URL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <TextBox x:Name="AudioBaseUrlInput" Margin="0,6,0,4" />
+        <TextBlock Text="Leave blank to use the AI provider base URL and saved key."
+                   Foreground="{StaticResource Tertiary}" FontSize="10" Margin="0,0,0,12" />
+
+        <TextBlock Text="AUDIO API KEY (OPTIONAL)" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <PasswordBox x:Name="AudioApiKeyInput" Margin="0,6,0,0" />
+        <Grid Margin="0,5,0,12">
+          <TextBlock x:Name="AudioCredentialHint" Foreground="{StaticResource Tertiary}" FontSize="10" />
+          <Button HorizontalAlignment="Right" Content="Remove audio key" Click="RemoveAudioKey" Background="Transparent" Foreground="#E59A40" BorderThickness="0" Cursor="Hand" FontSize="10" />
+        </Grid>
+
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <TextBlock Text="TRANSCRIPTION MODEL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+            <TextBox x:Name="TranscriptionModelInput" Margin="0,6,0,0" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="SPEECH MODEL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+            <TextBox x:Name="SpeechModelInput" Margin="0,6,0,0" />
+          </StackPanel>
+        </Grid>
+
+        <TextBlock Text="VOICE ID" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <TextBox x:Name="VoiceInput" Margin="0,6,0,14" />
 
         <Border Background="#171918" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="12">
           <TextBlock x:Name="StatusText" Text="Ready to configure." Foreground="{StaticResource Secondary}" TextWrapping="Wrap" FontSize="11" />

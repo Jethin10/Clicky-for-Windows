@@ -66,4 +66,23 @@ public sealed class ClickySettings
 {
     public int Version { get; set; } = 1;
     public ProviderSettings Provider { get; set; } = new();
+    public AudioSettings Audio { get; set; } = new();
+}
+
+public sealed class AudioSettings
+{
+    public bool Enabled { get; set; } = true;
+    public string BaseUrl { get; set; } = string.Empty;
+    public string TranscriptionModel { get; set; } = "gpt-4o-mini-transcribe";
+    public string SpeechModel { get; set; } = "tts-1";
+    public string Voice { get; set; } = "alloy";
+
+    public string EffectiveBaseUrl(ProviderSettings provider) =>
+        string.IsNullOrWhiteSpace(BaseUrl) ? provider.BaseUrl : BaseUrl.Trim();
+
+    public bool IsConfigured(ProviderSettings provider) => Enabled
+        && Uri.TryCreate(EffectiveBaseUrl(provider), UriKind.Absolute, out _)
+        && !string.IsNullOrWhiteSpace(TranscriptionModel)
+        && !string.IsNullOrWhiteSpace(SpeechModel)
+        && !string.IsNullOrWhiteSpace(Voice);
 }

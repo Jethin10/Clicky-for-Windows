@@ -8,13 +8,26 @@ namespace Clicky.Windows.Services;
 /// </summary>
 public sealed class SecureCredentialStore
 {
-    private const string TargetName = "Clicky.Windows/primary-provider";
+    private const string PrimaryTargetName = "Clicky.Windows/primary-provider";
+    private const string AudioTargetName = "Clicky.Windows/audio-provider";
     private const uint CredTypeGeneric = 1;
     private const uint CredPersistLocalMachine = 2;
 
-    public string? ReadApiKey()
+    public string? ReadApiKey() => Read(PrimaryTargetName);
+
+    public string? ReadAudioApiKey() => Read(AudioTargetName);
+
+    public void WriteApiKey(string apiKey) => Write(PrimaryTargetName, apiKey);
+
+    public void WriteAudioApiKey(string apiKey) => Write(AudioTargetName, apiKey);
+
+    public void DeleteApiKey() => Delete(PrimaryTargetName);
+
+    public void DeleteAudioApiKey() => Delete(AudioTargetName);
+
+    private static string? Read(string targetName)
     {
-        if (!CredRead(TargetName, CredTypeGeneric, 0, out var credentialPointer))
+        if (!CredRead(targetName, CredTypeGeneric, 0, out var credentialPointer))
         {
             return null;
         }
@@ -37,11 +50,11 @@ public sealed class SecureCredentialStore
         }
     }
 
-    public void WriteApiKey(string apiKey)
+    private static void Write(string targetName, string apiKey)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            DeleteApiKey();
+            Delete(targetName);
             return;
         }
 
@@ -53,7 +66,7 @@ public sealed class SecureCredentialStore
             var credential = new NativeCredential
             {
                 Type = CredTypeGeneric,
-                TargetName = TargetName,
+                TargetName = targetName,
                 CredentialBlobSize = (uint)bytes.Length,
                 CredentialBlob = blobPointer,
                 Persist = CredPersistLocalMachine,
@@ -72,9 +85,9 @@ public sealed class SecureCredentialStore
         }
     }
 
-    public void DeleteApiKey()
+    private static void Delete(string targetName)
     {
-        _ = CredDelete(TargetName, CredTypeGeneric, 0);
+        _ = CredDelete(targetName, CredTypeGeneric, 0);
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

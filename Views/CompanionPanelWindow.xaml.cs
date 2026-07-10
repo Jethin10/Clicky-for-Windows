@@ -57,7 +57,11 @@ public partial class CompanionPanelWindow : Window
             isConfigured ? "#6B736F" : "#E59A40"));
     }
 
-    public void SetProviderConfiguration(ProviderSettings provider, bool directProviderReady, bool workerConfigured)
+    public void SetProviderConfiguration(
+        ProviderSettings provider,
+        bool directProviderReady,
+        bool workerConfigured,
+        bool directAudioReady)
     {
         if (directProviderReady)
         {
@@ -65,11 +69,13 @@ public partial class CompanionPanelWindow : Window
             ProviderModelText.Text = provider.Model;
             SelectedModel = provider.Model;
             WorkerModelButtons.Visibility = Visibility.Collapsed;
-            WorkerStatus.Text = workerConfigured
-                ? "direct AI is ready; your private worker handles voice"
-                : "direct AI is ready; configure CLICKY_WORKER_URL for push-to-talk voice";
+            WorkerStatus.Text = directAudioReady
+                ? "direct AI, transcription, and speech are ready"
+                : workerConfigured
+                    ? "direct AI is ready; your private worker handles voice"
+                    : "direct AI is ready; enable compatible voice endpoints";
             WorkerStatus.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
-                workerConfigured ? "#6B736F" : "#E59A40"));
+                directAudioReady || workerConfigured ? "#6B736F" : "#E59A40"));
             return;
         }
 

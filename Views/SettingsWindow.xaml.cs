@@ -25,12 +25,17 @@ public partial class SettingsWindow : Window
         _loading = true;
         PresetBox.ItemsSource = new[] { "OpenAI", "OpenRouter", "MiMo", "Local", "Custom" };
         ProtocolBox.ItemsSource = Enum.GetValues<ProviderProtocol>();
-        var currentProvider = _settingsService.Load().Provider;
+        var currentSettings = _settingsService.Load();
+        var currentProvider = currentSettings.Provider;
         _safetyIdentifier = currentProvider.SafetyIdentifier;
         Apply(currentProvider);
+        ApplyAudio(currentSettings.Audio);
         CredentialHint.Text = string.IsNullOrWhiteSpace(_credentialStore.ReadApiKey())
             ? "No key is saved. Local endpoints may not require one."
             : "A key is saved. Leave this blank to keep it unchanged.";
+        AudioCredentialHint.Text = string.IsNullOrWhiteSpace(_credentialStore.ReadAudioApiKey())
+            ? "Uses the main provider key when blank."
+            : "A separate audio key is saved.";
         _loading = false;
         Loaded += async (_, _) =>
         {
@@ -41,6 +46,11 @@ public partial class SettingsWindow : Window
             }
 
             await Task.Delay(350);
+            if (string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_SETTINGS_AUDIO"), "1", StringComparison.Ordinal))
+            {
+                SettingsScroll.ScrollToEnd();
+                UpdateLayout();
+            }
             WriteVisualTestSnapshot();
         };
     }
@@ -56,6 +66,15 @@ public partial class SettingsWindow : Window
         ModelBox.Text = provider.Model;
         SendScreenshotsCheck.IsChecked = provider.SendScreenshots;
         WebSearchCheck.IsChecked = provider.EnableWebSearch;
+    }
+
+    private void ApplyAudio(AudioSettings audio)
+    {
+        DirectAudioCheck.IsChecked = audio.Enabled;
+        AudioBaseUrlInput.Text = audio.BaseUrl;
+        TranscriptionModelInput.Text = audio.TranscriptionModel;
+        SpeechModelInput.Text = audio.SpeechModel;
+        VoiceInput.Text = audio.Voice;
     }
 
     private void PresetChanged(object sender, SelectionChangedEventArgs eventArgs)
@@ -78,6 +97,15 @@ public partial class SettingsWindow : Window
         SafetyIdentifier = _safetyIdentifier,
         SendScreenshots = SendScreenshotsCheck.IsChecked == true,
         EnableWebSearch = WebSearchCheck.IsChecked == true
+    };
+
+    private AudioSettings ReadAudio() => new()
+    {
+        Enabled = DirectAudioCheck.IsChecked == true,
+        BaseUrl = AudioBaseUrlInput.Text.Trim(),
+        TranscriptionModel = TranscriptionModelInput.Text.Trim(),
+        SpeechModel = SpeechModelInput.Text.Trim(),
+        Voice = VoiceInput.Text.Trim()
     };
 
     private async void DiscoverModels(object sender, RoutedEventArgs eventArgs)
@@ -110,6 +138,14 @@ public partial class SettingsWindow : Window
         StatusText.Text = "Saved API key removed from Windows Credential Manager.";
     }
 
+    private void RemoveAudioKey(object sender, RoutedEventArgs eventArgs)
+    {
+        _credentialStore.DeleteAudioApiKey();
+        AudioApiKeyInput.Clear();
+        AudioCredentialHint.Text = "Uses the main provider key when blank.";
+        StatusText.Text = "Saved audio API key removed from Windows Credential Manager.";
+    }
+
     private void Save(object sender, RoutedEventArgs eventArgs)
     {
         var provider = ReadProvider();
@@ -124,7 +160,19 @@ public partial class SettingsWindow : Window
             _credentialStore.WriteApiKey(ApiKeyInput.Password);
         }
 
-        var settings = new ClickySettings { Provider = provider };
+        if (!string.IsNullOrWhiteSpace(AudioApiKeyInput.Password))
+        {
+            _credentialStore.WriteAudioApiKey(AudioApiKeyInput.Password);
+        }
+
+        var audio = ReadAudio();
+        if (audio.Enabled && !audio.IsConfigured(provider))
+        {
+            StatusText.Text = "Voice needs a valid audio base URL, transcription model, speech model, and voice ID.";
+            return;
+        }
+
+        var settings = new ClickySettings { Provider = provider, Audio = audio };
         _settingsService.Save(settings);
         SettingsSaved?.Invoke(settings);
         DialogResult = true;

@@ -49,9 +49,23 @@ Provider documentation:
 
 ## Voice services
 
-Direct model access powers typed screen questions and background agent tasks.
-The original public Clicky voice path still expects an owner-operated Worker
-for streaming transcription and speech. Set it before launching:
+Enable **OpenAI-compatible transcription and speech endpoints** in provider
+settings to use push-to-talk without a Clicky Worker. The defaults call:
+
+- `POST /audio/transcriptions` with a 16 kHz mono WAV file
+- `POST /audio/speech` with text, model, and voice fields
+
+The audio service can inherit the main provider URL and key or use a separate
+base URL and API key. Both keys stay in Windows Credential Manager. The default
+models are `gpt-4o-mini-transcribe` and `tts-1`, with the `alloy` voice; every
+field is configurable for compatible providers.
+
+Say **“HeyClicky agent, …”** during a Ctrl+Alt recording to route the spoken
+request into the background-agent queue. Ordinary speech remains an immediate
+screen-aware question.
+
+The original Worker remains an optional fallback path for AssemblyAI streaming
+transcription and ElevenLabs speech. Set it before launching:
 
 ```powershell
 $env:CLICKY_WORKER_URL = "https://your-worker.example/"
@@ -80,6 +94,18 @@ claiming that an external action happened without a real tool result.
 This version intentionally does not yet give agents unrestricted filesystem,
 browser, shell, or email access. Those action tools require explicit approval,
 auditing, and recovery controls before they are safe to ship.
+
+## Validation
+
+Run the dependency-free smoke suite:
+
+```powershell
+dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release
+```
+
+It covers spoken agent-command routing, WAV encoding, a loopback HTTP probe of
+the direct transcription endpoint and authentication header, provider audio
+configuration, and pointer-tag parsing.
 
 ## Privacy behavior
 

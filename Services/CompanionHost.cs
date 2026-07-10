@@ -24,6 +24,7 @@ public sealed class CompanionHost : IDisposable
     private readonly List<ConversationTurn> _conversationHistory = [];
     private readonly object _sessionGate = new();
     private readonly List<PendingAudio> _bufferedAudio = [];
+    private readonly MemoryStream _recordedPcm = new();
     private readonly SemaphoreSlim _audioSendGate = new(1, 1);
     private readonly SemaphoreSlim _agentQueueGate = new(1, 1);
     private readonly CancellationTokenSource _agentCancellation = new();
@@ -31,6 +32,7 @@ public sealed class CompanionHost : IDisposable
     private readonly ElevenLabsTtsPlayer? _tts;
     private ClickySettings _settings;
     private UniversalModelClient? _directModel;
+    private OpenAiAudioClient? _directAudio;
 
     private AssemblyAiTranscriptionSession? _transcriptionSession;
     private Task? _transcriptionStartup;
@@ -122,6 +124,10 @@ public sealed class CompanionHost : IDisposable
         CancelInteraction();
         _interactionCancellation = new CancellationTokenSource();
         var cancellationToken = _interactionCancellation.Token;
+        lock (_sessionGate)
+        {
+            _recordedPcm.SetLength(0);
+        }
 
         _overlayHost.Show();
         _overlayHost.SetAudioLevel(0);
@@ -132,7 +138,7 @@ public sealed class CompanionHost : IDisposable
         // The microphone starts immediately. Audio is kept briefly in memory
         // while the transcription WebSocket obtains its short-lived token.
         _microphone.Start();
-        if (_worker.IsConfigured)
+        if (_directAudio is null && _worker.IsConfigured)
         {
             _transcriptionStartup = StartTranscriptionAsync(cancellationToken);
         }
@@ -189,12 +195,26 @@ public sealed class CompanionHost : IDisposable
     private void QueueAudio(ReadOnlyMemory<byte> pcm16, float level)
     {
         Dispatch(() => _overlayHost.SetAudioLevel(level));
-        if (!_worker.IsConfigured || pcm16.IsEmpty)
+        if (pcm16.IsEmpty)
         {
             return;
         }
 
         var copy = pcm16.ToArray();
+        lock (_sessionGate)
+        {
+            // Five minutes of 16 kHz, mono, 16-bit PCM is about 9.6 MB.
+            if (_recordedPcm.Length + copy.Length <= 10_000_000)
+            {
+                _recordedPcm.Write(copy, 0, copy.Length);
+            }
+        }
+
+        if (_directAudio is not null || !_worker.IsConfigured)
+        {
+            return;
+        }
+
         var shouldBuffer = false;
         lock (_sessionGate)
         {
@@ -264,9 +284,9 @@ public sealed class CompanionHost : IDisposable
             _overlayHost.SetState(InteractionState.Processing);
             _panel.SetVoiceState(InteractionState.Processing);
 
-            if (!_worker.IsConfigured || _tts is null)
+            if (_directAudio is null && !_worker.IsConfigured)
             {
-                ShowRecoverableMessage("configure CLICKY_WORKER_URL for push-to-talk voice");
+                ShowRecoverableMessage("enable direct voice or configure CLICKY_WORKER_URL");
                 return;
             }
 
@@ -276,31 +296,63 @@ public sealed class CompanionHost : IDisposable
                 return;
             }
 
-            if (_transcriptionStartup is not null)
-            {
-                await _transcriptionStartup.WaitAsync(TimeSpan.FromSeconds(14), cancellationToken);
-            }
-
-            var session = TakeTranscriptionSession();
-            if (session is null)
-            {
-                ShowRecoverableMessage("voice connection wasn't ready");
-                return;
-            }
-
             string transcript;
-            try
+            if (_directAudio is not null)
             {
-                transcript = await session.FinalizeAsync(cancellationToken);
+                // WaveInEvent can deliver its final buffer immediately after
+                // StopRecording; give that callback one dispatcher turn.
+                await Task.Delay(80, cancellationToken);
+                var recordedPcm = TakeRecordedPcm();
+                if (recordedPcm.Length < 1_600)
+                {
+                    ShowRecoverableMessage("i didn't catch that");
+                    return;
+                }
+
+                transcript = await _directAudio.TranscribeAsync(recordedPcm, cancellationToken);
             }
-            finally
+            else
             {
-                await session.DisposeAsync();
+                if (_transcriptionStartup is not null)
+                {
+                    await _transcriptionStartup.WaitAsync(TimeSpan.FromSeconds(14), cancellationToken);
+                }
+
+                var session = TakeTranscriptionSession();
+                if (session is null)
+                {
+                    ShowRecoverableMessage("voice connection wasn't ready");
+                    return;
+                }
+
+                try
+                {
+                    transcript = await session.FinalizeAsync(cancellationToken);
+                }
+                finally
+                {
+                    await session.DisposeAsync();
+                }
             }
 
             if (string.IsNullOrWhiteSpace(transcript))
             {
                 ShowRecoverableMessage("i didn't catch that");
+                return;
+            }
+
+            if (VoiceCommandRouter.TryExtractAgentCommand(transcript, out var agentCommand))
+            {
+                if (string.IsNullOrWhiteSpace(agentCommand))
+                {
+                    ShowRecoverableMessage("tell me what the agent should do");
+                    return;
+                }
+
+                _overlayHost.SetState(InteractionState.Idle);
+                _panel.SetVoiceState(InteractionState.Idle);
+                _panel.SetAgentStatus("Voice agent queued", active: true);
+                _ = RunBackgroundAgentAsync(agentCommand, _agentCancellation.Token);
                 return;
             }
 
@@ -355,11 +407,7 @@ public sealed class CompanionHost : IDisposable
                 _overlayHost.PointAt(point, spokenText.Length > 42 ? "right here!" : spokenText);
             }
 
-            await _tts.SpeakAsync(spokenText, cancellationToken);
-            while (_tts.IsPlaying)
-            {
-                await Task.Delay(100, cancellationToken);
-            }
+            await SpeakConfiguredAsync(spokenText, cancellationToken);
 
             _overlayHost.SetState(InteractionState.Idle);
             _panel.SetVoiceState(InteractionState.Idle);
@@ -368,13 +416,17 @@ public sealed class CompanionHost : IDisposable
         {
             // A new Ctrl+Alt hold intentionally interrupts recording, speech and pointing.
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            ShowRecoverableMessage("i hit a snag — try that again");
+            ShowRecoverableMessage($"voice error: {ShortMessage(exception.Message)}");
         }
         finally
         {
             _microphone.Stop();
+            lock (_sessionGate)
+            {
+                _recordedPcm.SetLength(0);
+            }
         }
     }
 
@@ -386,6 +438,16 @@ public sealed class CompanionHost : IDisposable
             _transcriptionSession = null;
             _bufferedAudio.Clear();
             return session;
+        }
+    }
+
+    private byte[] TakeRecordedPcm()
+    {
+        lock (_sessionGate)
+        {
+            var bytes = _recordedPcm.ToArray();
+            _recordedPcm.SetLength(0);
+            return bytes;
         }
     }
 
@@ -603,6 +665,33 @@ public sealed class CompanionHost : IDisposable
         var target = PointerTagParser.MapToScreen(pointing, captures) ?? GetCursorPoint();
         _overlayHost.PointAt(target, text);
 
+        await SpeakConfiguredAsync(text, cancellationToken);
+
+        _overlayHost.SetState(InteractionState.Idle);
+        _panel.SetVoiceState(InteractionState.Idle);
+    }
+
+    private static string ShortMessage(string message) => message.Length <= 120 ? message : message[..117] + "...";
+
+    private async Task SpeakConfiguredAsync(string text, CancellationToken cancellationToken)
+    {
+        if (_directAudio is not null)
+        {
+            try
+            {
+                await _directAudio.SpeakAsync(text, cancellationToken);
+                while (_directAudio.IsPlaying)
+                {
+                    await Task.Delay(100, cancellationToken);
+                }
+                return;
+            }
+            catch when (_tts is not null && !cancellationToken.IsCancellationRequested)
+            {
+                // Fall back to the owner-operated Worker voice when available.
+            }
+        }
+
         if (_tts is not null)
         {
             await _tts.SpeakAsync(text, cancellationToken);
@@ -611,12 +700,7 @@ public sealed class CompanionHost : IDisposable
                 await Task.Delay(100, cancellationToken);
             }
         }
-
-        _overlayHost.SetState(InteractionState.Idle);
-        _panel.SetVoiceState(InteractionState.Idle);
     }
-
-    private static string ShortMessage(string message) => message.Length <= 120 ? message : message[..117] + "...";
 
     private void OpenSettings()
     {
@@ -637,18 +721,34 @@ public sealed class CompanionHost : IDisposable
     {
         _directModel?.Dispose();
         _directModel = null;
+        _directAudio?.Dispose();
+        _directAudio = null;
 
         var apiKey = _credentialStore.ReadApiKey();
+        var audioApiKey = _credentialStore.ReadAudioApiKey() ?? apiKey;
         var presetAllowsNoKey = _settings.Provider.Preset is "Local" or "Custom";
+        var audioAllowsNoKey = presetAllowsNoKey
+            || (Uri.TryCreate(_settings.Audio.EffectiveBaseUrl(_settings.Provider), UriKind.Absolute, out var audioUri)
+                && audioUri.IsLoopback);
         if (_settings.Provider.IsConfigured && (presetAllowsNoKey || !string.IsNullOrWhiteSpace(apiKey)))
         {
             _directModel = new UniversalModelClient(_settings.Provider, apiKey);
+        }
+
+        if (_settings.Audio.IsConfigured(_settings.Provider)
+            && (audioAllowsNoKey || !string.IsNullOrWhiteSpace(audioApiKey)))
+        {
+            _directAudio = new OpenAiAudioClient(_settings.Audio, _settings.Provider, audioApiKey);
         }
     }
 
     private void RefreshProviderStatus()
     {
-        _panel.SetProviderConfiguration(_settings.Provider, _directModel is not null, _worker.IsConfigured);
+        _panel.SetProviderConfiguration(
+            _settings.Provider,
+            _directModel is not null,
+            _worker.IsConfigured,
+            _directAudio is not null);
     }
 
     private void OnMicrophoneFailure(Exception _)
@@ -663,6 +763,11 @@ public sealed class CompanionHost : IDisposable
         _interactionCancellation = null;
         _microphone.Stop();
         _tts?.Stop();
+        _directAudio?.Stop();
+        lock (_sessionGate)
+        {
+            _recordedPcm.SetLength(0);
+        }
 
         var session = TakeTranscriptionSession();
         if (session is not null)
@@ -702,7 +807,9 @@ public sealed class CompanionHost : IDisposable
         _trayService.Dispose();
         _claude?.Dispose();
         _directModel?.Dispose();
+        _directAudio?.Dispose();
         _tts?.Dispose();
+        _recordedPcm.Dispose();
         _audioSendGate.Dispose();
         _agentQueueGate.Dispose();
         _agentCancellation.Dispose();

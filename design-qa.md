@@ -85,6 +85,16 @@ Pass with two intentional Windows adaptations:
 - The updated self-contained `win-x64` release publish passed and its executable remained running through the native visual-test launch.
 - Live paid-provider calls remain configuration-dependent and were not attempted without user-owned API credentials.
 
+## Direct voice and spoken-agent extension — 2026-07-10
+
+- Added configurable OpenAI-compatible `/audio/transcriptions` and `/audio/speech` support with separate optional audio credentials in Windows Credential Manager.
+- Added complete bounded PCM recording, 16 kHz mono WAV encoding, direct TTS playback, and Worker TTS fallback.
+- Added spoken `HeyClicky agent` routing while preserving ordinary Ctrl+Alt screen questions.
+- Added a dependency-free smoke-test project. It validates compact/spaced wake phrases, ordinary-question routing, WAV headers, audio configuration, pointer tags, and a real loopback HTTP transcription request including path, bearer header, multipart WAV payload, and response parsing.
+- `dotnet build --no-restore -c Release` passed with zero warnings and zero errors.
+- `dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release` passed.
+- Rendered the audio settings section at 460×620. All controls, model values, credential status, and action buttons are readable without horizontal clipping.
+
 ## Final result
 
 passed
