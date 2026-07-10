@@ -99,6 +99,12 @@ serial background queue, can use provider web-search support when enabled, and
 return a visible completion result beside the cursor. The agent prompt forbids
 claiming that an external action happened without a real tool result.
 
+Every completed task is retained as the latest agent result in the Clicky
+panel. Choose **View** to read the complete response in a resizable native
+window or copy it to the clipboard. This keeps long research output available
+after the temporary cursor notification disappears. Stored results are bounded
+to 500,000 characters and are replaced by the next completed task.
+
 Build requests can now return a bounded package of up to 20 text files. Clicky
 normalizes every path into the configured agent workspace, blocks traversal,
 absolute paths, duplicate targets, symbolic links, and junctions, then shows a
@@ -174,6 +180,9 @@ local loopback SMTP server without sending mail externally.
   applications can remain unavailable to ordinary desktop capture.
 
 ## Scope
+
+The requirement-by-requirement public audit and remaining known gaps are kept in
+[`FEATURE_PARITY.md`](./FEATURE_PARITY.md).
 
 The upstream repository is an older open-source Clicky snapshot. Its README
 states that newer HeyClicky work is private. This project does not access or

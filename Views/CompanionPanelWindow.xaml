@@ -152,6 +152,16 @@
                 <Button Grid.Column="1" Click="SubmitAgentPrompt" Style="{StaticResource QuietButton}" Background="#2563EB" Foreground="White" Padding="8,7" Content="Run agent" FontSize="11" Margin="4,0,0,0" />
               </Grid>
               <TextBlock x:Name="AgentStatusText" Text="No background tasks" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" TextWrapping="Wrap" Margin="0,7,0,0" />
+              <Border x:Name="AgentResultPanel" Visibility="Collapsed" Background="#171918" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="7" Padding="8" Margin="0,7,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock x:Name="AgentResultTitleText" Text="Latest result" Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="11" FontWeight="SemiBold" />
+                    <TextBlock x:Name="AgentResultPreviewText" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="9" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Click="ViewAgentResult" Style="{StaticResource QuietButton}" Foreground="{StaticResource BlueLight}" Content="View" FontSize="10" Margin="8,0,0,0" />
+                </Grid>
+              </Border>
               <Grid x:Name="WorkerModelButtons" Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Button x:Name="SonnetButton" Grid.Column="0" Click="SelectSonnet" Style="{StaticResource QuietButton}" Background="#2563EB" Foreground="White" Padding="8,7" Content="Sonnet" FontSize="12" /><Button x:Name="OpusButton" Grid.Column="1" Click="SelectOpus" Style="{StaticResource QuietButton}" Background="#202221" Padding="8,7" Content="Opus" FontSize="12" /></Grid>
               <Button Click="OpenFeedback" Style="{StaticResource QuietButton}" Margin="0,16,0,0" HorizontalAlignment="Left" Padding="0" Content="DM Farza" Foreground="{StaticResource BlueLight}" FontSize="12" />
               <Button Click="ReplayOnboarding" Style="{StaticResource QuietButton}" Margin="0,10,0,0" HorizontalAlignment="Left" Padding="0" Content="Replay onboarding" Foreground="{StaticResource Tertiary}" FontSize="11" />

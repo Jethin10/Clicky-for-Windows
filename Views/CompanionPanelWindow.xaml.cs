@@ -49,6 +49,7 @@ public partial class CompanionPanelWindow : Window
     public event Action<string, bool>? PromptSubmitted;
     public event Action? AttachDocumentRequested;
     public event Action? RemoveDocumentRequested;
+    public event Action? ViewAgentResultRequested;
 
     public void SetWorkerConfigured(bool isConfigured)
     {
@@ -94,6 +95,13 @@ public partial class CompanionPanelWindow : Window
         AgentStatusText.Text = status;
         AgentStatusText.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
             active ? "#60A5FA" : "#6B736F"));
+    }
+
+    public void SetAgentResult(string providerName, string preview)
+    {
+        AgentResultPanel.Visibility = Visibility.Visible;
+        AgentResultTitleText.Text = $"Latest result · {providerName}";
+        AgentResultPreviewText.Text = preview.ReplaceLineEndings(" ").Trim();
     }
 
     public void SetAttachmentStatus(string fileName, string status, bool visible)
@@ -241,6 +249,8 @@ public partial class CompanionPanelWindow : Window
     private void AttachDocument(object? sender, RoutedEventArgs eventArgs) => AttachDocumentRequested?.Invoke();
 
     private void RemoveDocument(object? sender, RoutedEventArgs eventArgs) => RemoveDocumentRequested?.Invoke();
+
+    private void ViewAgentResult(object? sender, RoutedEventArgs eventArgs) => ViewAgentResultRequested?.Invoke();
 
     private void PromptKeyDown(object? sender, System.Windows.Input.KeyEventArgs eventArgs)
     {

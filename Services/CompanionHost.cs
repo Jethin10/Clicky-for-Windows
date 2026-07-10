@@ -39,6 +39,8 @@ public sealed class CompanionHost : IDisposable
     private UniversalModelClient? _directModel;
     private OpenAiAudioClient? _directAudio;
     private DocumentContext? _attachedDocument;
+    private AgentTaskResult? _latestAgentResult;
+    private AgentResultWindow? _agentResultWindow;
 
     private AssemblyAiTranscriptionSession? _transcriptionSession;
     private Task? _transcriptionStartup;
@@ -69,6 +71,7 @@ public sealed class CompanionHost : IDisposable
         _panel.PromptSubmitted += HandleTypedPrompt;
         _panel.AttachDocumentRequested += AttachDocument;
         _panel.RemoveDocumentRequested += RemoveDocument;
+        _panel.ViewAgentResultRequested += ShowLatestAgentResult;
         _panel.SetWorkerConfigured(_worker.IsConfigured);
         RefreshProviderStatus();
         if (NativeMethods.IsVisualTest
@@ -106,6 +109,12 @@ public sealed class CompanionHost : IDisposable
             && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_EMAIL_APPROVAL"), "1", StringComparison.Ordinal))
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(ShowEmailApprovalVisualTest);
+        }
+
+        if (NativeMethods.IsVisualTest
+            && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_AGENT_RESULT"), "1", StringComparison.Ordinal))
+        {
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(ShowAgentResultVisualTest);
         }
 
         if (NativeMethods.IsVisualTest
@@ -738,11 +747,22 @@ public sealed class CompanionHost : IDisposable
             {
                 result = artifactResult.Package?.Summary ?? "Agent finished.";
             }
+            var completedResult = AgentResultService.Create(
+                prompt,
+                response.ProviderName,
+                result,
+                DateTimeOffset.Now);
             Dispatch(() =>
             {
+                _agentResultWindow?.Close();
+                _agentResultWindow = null;
+                _latestAgentResult = completedResult;
                 _panel.SetAgentStatus($"Agent finished via {response.ProviderName}", active: false);
+                _panel.SetAgentResult(
+                    response.ProviderName,
+                    AgentResultService.Preview(result));
                 _overlayHost.Show();
-                _overlayHost.PointAt(GetCursorPoint(), result.Length > 180 ? result[..177] + "..." : result);
+                _overlayHost.PointAt(GetCursorPoint(), "agent finished — open the full result in Clicky");
             });
         }
         catch (OperationCanceledException)
@@ -765,6 +785,34 @@ public sealed class CompanionHost : IDisposable
                 _agentQueueGate.Release();
             }
         }
+    }
+
+    private void ShowLatestAgentResult()
+    {
+        if (_latestAgentResult is null)
+        {
+            return;
+        }
+        if (_agentResultWindow is { IsLoaded: true })
+        {
+            _agentResultWindow.Activate();
+            return;
+        }
+
+        _agentResultWindow = new AgentResultWindow(_latestAgentResult) { Owner = _panel };
+        _agentResultWindow.Closed += (_, _) => _agentResultWindow = null;
+        _agentResultWindow.Show();
+    }
+
+    private void ShowAgentResultVisualTest()
+    {
+        _latestAgentResult = new AgentTaskResult(
+            "Find cameras like the one on my screen under $1,000 and compare the strongest options.",
+            "OpenRouter · web search",
+            "Research complete\n\n1. Sony ZV-E10 II — strong autofocus, interchangeable lenses, and excellent creator-focused video tools. Typical body pricing leaves room for a starter lens.\n\n2. Canon EOS R50 — compact, approachable controls, reliable subject detection, and good 4K output.\n\n3. Fujifilm X-S20 — the most capable hybrid option when discounted, with stabilization and strong battery life.\n\nRecommendation: choose the R50 for the simplest setup, or the ZV-E10 II when lens flexibility and video autofocus matter most. Verify current retailer pricing and included lens bundles before purchasing.",
+            DateTimeOffset.Now);
+        _panel.SetAgentResult("OpenRouter · web search", "Research complete — compared Sony, Canon, and Fujifilm options.");
+        ShowLatestAgentResult();
     }
 
     private async Task<bool> ReviewAndSendEmailAsync(
@@ -1059,6 +1107,7 @@ public sealed class CompanionHost : IDisposable
         CancelInteraction();
         _pushToTalk.Dispose();
         _microphone.Dispose();
+        _agentResultWindow?.Close();
         _overlayHost.Dispose();
         _trayService.Dispose();
         _claude?.Dispose();

@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <None Update="ATTRIBUTION.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="FEATURE_PARITY.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="UPSTREAM_LICENSE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Assets\tessdata\eng.traineddata" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

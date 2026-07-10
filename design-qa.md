@@ -114,6 +114,19 @@ Pass with two intentional Windows adaptations:
 
 ## Final result
 
+## Persistent background-agent results — 2026-07-11
+
+- Replaced the lossy 180-character completion bubble with a compact latest-result
+  card and a resizable native viewer containing the complete result.
+- Added task, provider, completion-time, scrolling, and explicit copy controls.
+- Kept the cursor notification short while preserving up to 500,000 result
+  characters until the next background task completes.
+- Rendered the 680×620 result viewer and the expanded companion panel; long
+  research text, metadata, preview, View action, and footer controls remain
+  readable without clipping.
+- Added tests for full-result preservation, document-context removal from task
+  labels, one-line previews, and the result safety bound.
+
 ## Windows offline speech fallback — 2026-07-11
 
 - Added Windows Desktop Speech recognition as a local-only fallback for failed,

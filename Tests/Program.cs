@@ -183,6 +183,22 @@ var artifact = AgentArtifactParser.Parse(artifactResponse);
 Check(artifact.Package?.Files.Count == 2, "agent artifact package parsing");
 Check(artifact.VisibleText.Contains("built the page", StringComparison.Ordinal), "agent artifact visible response");
 
+var researchResultText = "Camera comparison\n\n1. First option\n2. Second option\n\nRecommendation: first option.";
+var storedAgentResult = AgentResultService.Create(
+    "find cameras under $1,000\n\nattached local document: reference.pdf\ncontent",
+    "OpenRouter",
+    researchResultText,
+    DateTimeOffset.Parse("2026-07-11T12:00:00Z"));
+Check(storedAgentResult.Task == "find cameras under $1,000", "agent result task strips attached document payload");
+Check(storedAgentResult.Text == researchResultText, "complete agent research result preserved");
+Check(!AgentResultService.Preview(researchResultText).Contains('\n'), "agent result single-line preview");
+var boundedAgentResult = AgentResultService.Create(
+    "large result",
+    "test provider",
+    new string('x', AgentResultService.MaximumResultCharacters + 1),
+    DateTimeOffset.UtcNow);
+Check(boundedAgentResult.Text.Contains("Result truncated", StringComparison.Ordinal), "agent result safety bound");
+
 var emailResponse = """
     Draft ready.
     [CLICKY_EMAIL]
