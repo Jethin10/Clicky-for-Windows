@@ -95,6 +95,15 @@ Pass with two intentional Windows adaptations:
 - `dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release` passed.
 - Rendered the audio settings section at 460×620. All controls, model values, credential status, and action buttons are readable without horizontal clipping.
 
+## Local document and PDF extension — 2026-07-10
+
+- Added a compact attachment card and local file picker for PDFs plus common text and code formats.
+- Added 25 MB file and 120,000-character context bounds, persistent follow-up attachment state, local-only extraction before submission, and explicit scanned-PDF failure messaging.
+- Added PdfPig 0.1.15 extraction using content-order text reconstruction.
+- Generated a deterministic two-page PDF with ReportLab, verified two pages with `pdfinfo`, rendered both pages through Poppler at 144 DPI, and visually inspected them with no clipping, overlap, or missing content.
+- The smoke suite extracted both pages in order and validated the expected phrases.
+- Rendered the 320×478 ready panel with an attached PDF. File name, page/character count, remove action, prompt, and agent controls remain readable without horizontal clipping.
+
 ## Final result
 
 passed

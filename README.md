@@ -95,6 +95,23 @@ This version intentionally does not yet give agents unrestricted filesystem,
 browser, shell, or email access. Those action tools require explicit approval,
 auditing, and recovery controls before they are safe to ship.
 
+## Local documents and PDFs
+
+Choose **Attach file** in the Clicky panel to add a PDF or supported text/code
+file to the next questions and agent tasks. Extraction happens locally when the
+file is selected; content is sent to the configured model only after you submit
+a request.
+
+- PDF text is extracted page by page in reading order.
+- Text, Markdown, JSON, CSV, logs, C#, XAML, XML, HTML, CSS, JavaScript,
+  TypeScript, and Python files are supported.
+- Files are limited to 25 MB and extracted context is bounded to 120,000
+  characters.
+- Scanned image-only PDFs report that OCR is required instead of silently
+  returning empty content.
+- The attachment remains available for follow-up questions until **Remove** is
+  selected.
+
 ## Validation
 
 Run the dependency-free smoke suite:
@@ -105,7 +122,8 @@ dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release
 
 It covers spoken agent-command routing, WAV encoding, a loopback HTTP probe of
 the direct transcription endpoint and authentication header, provider audio
-configuration, and pointer-tag parsing.
+configuration, pointer-tag parsing, text attachments, and optional multi-page
+PDF extraction through `CLICKY_TEST_PDF`.
 
 ## Privacy behavior
 

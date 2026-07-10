@@ -130,7 +130,21 @@
                   <Button Grid.Column="1" Click="OpenSettings" Style="{StaticResource QuietButton}" Background="#202221" Foreground="{StaticResource BlueLight}" Padding="9,6" Content="Configure" FontSize="11" />
                 </Grid>
               </Border>
-              <TextBlock Text="ASK CLICKY" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" FontWeight="SemiBold" Margin="0,16,0,5" />
+              <Grid Margin="0,16,0,5">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <TextBlock Text="ASK CLICKY" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Click="AttachDocument" Style="{StaticResource QuietButton}" Foreground="{StaticResource BlueLight}" Content="Attach file" FontSize="10" />
+              </Grid>
+              <Border x:Name="AttachmentPanel" Visibility="Collapsed" Background="#171918" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="7" Padding="8" Margin="0,0,0,7">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock x:Name="AttachmentNameText" Foreground="{StaticResource Secondary}" FontFamily="Segoe UI Variable" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="AttachmentStatusText" Foreground="{StaticResource Tertiary}" FontFamily="Segoe UI Variable" FontSize="9" Margin="0,2,0,0" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Click="RemoveDocument" Style="{StaticResource QuietButton}" Foreground="#E59A40" Content="Remove" FontSize="10" Margin="8,0,0,0" />
+                </Grid>
+              </Border>
               <TextBox x:Name="PromptInput" KeyDown="PromptKeyDown" Background="#171918" Foreground="{StaticResource Primary}" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="10,8" FontFamily="Segoe UI Variable" FontSize="12" TextWrapping="Wrap" MaxLength="2000" ToolTip="Ask about your screen or type an agent task" />
               <Grid Margin="0,8,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>

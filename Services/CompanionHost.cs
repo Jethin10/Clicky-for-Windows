@@ -15,6 +15,7 @@ public sealed class CompanionHost : IDisposable
     private readonly ModifierPushToTalkMonitor _pushToTalk = new();
     private readonly MicrophoneCaptureService _microphone = new();
     private readonly ScreenCaptureService _screenCapture = new();
+    private readonly DocumentContextService _documentContextService = new();
     private readonly OverlayHost _overlayHost = new();
     private readonly TrayService _trayService = new();
     private readonly CompanionPanelWindow _panel = new();
@@ -33,6 +34,7 @@ public sealed class CompanionHost : IDisposable
     private ClickySettings _settings;
     private UniversalModelClient? _directModel;
     private OpenAiAudioClient? _directAudio;
+    private DocumentContext? _attachedDocument;
 
     private AssemblyAiTranscriptionSession? _transcriptionSession;
     private Task? _transcriptionStartup;
@@ -61,6 +63,8 @@ public sealed class CompanionHost : IDisposable
         _panel.QuitRequested += Quit;
         _panel.ModelChanged += _ => { };
         _panel.PromptSubmitted += HandleTypedPrompt;
+        _panel.AttachDocumentRequested += AttachDocument;
+        _panel.RemoveDocumentRequested += RemoveDocument;
         _panel.SetWorkerConfigured(_worker.IsConfigured);
         RefreshProviderStatus();
         if (NativeMethods.IsVisualTest
@@ -352,7 +356,9 @@ public sealed class CompanionHost : IDisposable
                 _overlayHost.SetState(InteractionState.Idle);
                 _panel.SetVoiceState(InteractionState.Idle);
                 _panel.SetAgentStatus("Voice agent queued", active: true);
-                _ = RunBackgroundAgentAsync(agentCommand, _agentCancellation.Token);
+                _ = RunBackgroundAgentAsync(
+                    DocumentContextService.AddToPrompt(agentCommand, _attachedDocument),
+                    _agentCancellation.Token);
                 return;
             }
 
@@ -370,16 +376,17 @@ public sealed class CompanionHost : IDisposable
             }
 
             var history = _conversationHistory.TakeLast(10).ToList();
+            var requestTranscript = DocumentContextService.AddToPrompt(transcript, _attachedDocument);
             var response = _directModel is not null
                 ? await _directModel.AnalyzeAsync(
                     captures,
-                    transcript,
+                    requestTranscript,
                     history,
                     onTextChunk: null,
                     cancellationToken)
                 : await _claude!.AnalyzeAsync(
                     captures,
-                    transcript,
+                    requestTranscript,
                     _panel.SelectedModel,
                     history,
                     onTextChunk: null,
@@ -480,14 +487,57 @@ public sealed class CompanionHost : IDisposable
 
     private void HandleTypedPrompt(string prompt, bool agentMode)
     {
+        var requestPrompt = DocumentContextService.AddToPrompt(prompt, _attachedDocument);
         if (agentMode)
         {
-            _ = RunBackgroundAgentAsync(prompt, _agentCancellation.Token);
+            _ = RunBackgroundAgentAsync(requestPrompt, _agentCancellation.Token);
         }
         else
         {
-            _ = CompleteTypedPromptAsync(prompt, _agentCancellation.Token);
+            _ = CompleteTypedPromptAsync(requestPrompt, prompt, _agentCancellation.Token);
         }
+    }
+
+    private async void AttachDocument()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Attach a document to Clicky",
+            Filter = "Documents (*.pdf;*.txt;*.md;*.json;*.csv;*.log;*.cs;*.xaml;*.xml;*.html;*.css;*.js;*.ts;*.py)|*.pdf;*.txt;*.md;*.json;*.csv;*.log;*.cs;*.xaml;*.xml;*.html;*.css;*.js;*.ts;*.py|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(_panel) != true)
+        {
+            return;
+        }
+
+        var fileName = Path.GetFileName(dialog.FileName);
+        _panel.SetAttachmentStatus(fileName, "Extracting locally...", visible: true);
+        try
+        {
+            var context = await _documentContextService.ExtractAsync(dialog.FileName, _agentCancellation.Token);
+            _attachedDocument = context;
+            var detail = context.PageCount is { } pages
+                ? $"{pages} page{(pages == 1 ? string.Empty : "s")}, {context.Text.Length:N0} characters"
+                : $"{context.Text.Length:N0} characters";
+            if (context.WasTruncated)
+            {
+                detail += ", safely truncated";
+            }
+            _panel.SetAttachmentStatus(context.FileName, detail, visible: true);
+        }
+        catch (Exception exception)
+        {
+            _attachedDocument = null;
+            _panel.SetAttachmentStatus(fileName, ShortMessage(exception.Message), visible: true);
+        }
+    }
+
+    private void RemoveDocument()
+    {
+        _attachedDocument = null;
+        _panel.SetAttachmentStatus(string.Empty, string.Empty, visible: false);
     }
 
     private async Task<ProviderResponse?> AnalyzeConfiguredProviderAsync(
@@ -536,7 +586,10 @@ public sealed class CompanionHost : IDisposable
         }
     }
 
-    private async Task CompleteTypedPromptAsync(string prompt, CancellationToken cancellationToken)
+    private async Task CompleteTypedPromptAsync(
+        string requestPrompt,
+        string historyPrompt,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -553,7 +606,7 @@ public sealed class CompanionHost : IDisposable
 
             var response = await AnalyzeConfiguredProviderAsync(
                 captures,
-                prompt,
+                requestPrompt,
                 _conversationHistory.TakeLast(10).ToList(),
                 isolatedClient: false,
                 cancellationToken);
@@ -563,7 +616,7 @@ public sealed class CompanionHost : IDisposable
                 return;
             }
 
-            await PresentResponseAsync(prompt, response.Text, captures, cancellationToken);
+            await PresentResponseAsync(historyPrompt, response.Text, captures, cancellationToken);
         }
         catch (OperationCanceledException)
         {

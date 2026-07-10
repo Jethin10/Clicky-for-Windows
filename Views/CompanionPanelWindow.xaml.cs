@@ -47,6 +47,8 @@ public partial class CompanionPanelWindow : Window
     public event Action? QuitRequested;
     public event Action<string>? ModelChanged;
     public event Action<string, bool>? PromptSubmitted;
+    public event Action? AttachDocumentRequested;
+    public event Action? RemoveDocumentRequested;
 
     public void SetWorkerConfigured(bool isConfigured)
     {
@@ -91,6 +93,13 @@ public partial class CompanionPanelWindow : Window
             active ? "#60A5FA" : "#6B736F"));
     }
 
+    public void SetAttachmentStatus(string fileName, string status, bool visible)
+    {
+        AttachmentPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        AttachmentNameText.Text = fileName;
+        AttachmentStatusText.Text = status;
+    }
+
     public void EnableVisualTestReadyState()
     {
         if (!NativeMethods.IsVisualTest)
@@ -105,6 +114,10 @@ public partial class CompanionPanelWindow : Window
         _emailSubmitted = true;
         _onboarded = true;
         RefreshLayout();
+        if (string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_ATTACHMENT"), "1", StringComparison.Ordinal))
+        {
+            SetAttachmentStatus("clicky-verification.pdf", "2 pages, 314 characters", visible: true);
+        }
     }
 
     public void ShowPanel()
@@ -217,6 +230,10 @@ public partial class CompanionPanelWindow : Window
     private void SubmitPrompt(object? sender, RoutedEventArgs eventArgs) => DispatchPrompt(agentMode: false);
 
     private void SubmitAgentPrompt(object? sender, RoutedEventArgs eventArgs) => DispatchPrompt(agentMode: true);
+
+    private void AttachDocument(object? sender, RoutedEventArgs eventArgs) => AttachDocumentRequested?.Invoke();
+
+    private void RemoveDocument(object? sender, RoutedEventArgs eventArgs) => RemoveDocumentRequested?.Invoke();
 
     private void PromptKeyDown(object? sender, System.Windows.Input.KeyEventArgs eventArgs)
     {

@@ -47,6 +47,29 @@ Check(point.SpokenText == "right here", "pointer spoken text");
 Check(point.Pixel == new Drawing.Point(320, 240), "pointer coordinates");
 Check(point.ScreenNumber == 2, "pointer screen number");
 
+var documentService = new DocumentContextService();
+var textFixture = Path.Combine(Path.GetTempPath(), $"clicky-document-{Guid.NewGuid():N}.md");
+try
+{
+    await File.WriteAllTextAsync(textFixture, "Clicky attachment smoke test.\nSecond line.");
+    var textContext = await documentService.ExtractAsync(textFixture, CancellationToken.None);
+    Check(textContext.Text.Contains("attachment smoke test", StringComparison.Ordinal), "text attachment extraction");
+    Check(DocumentContextService.AddToPrompt("summarize it", textContext).Contains("begin attached document", StringComparison.Ordinal), "document prompt composition");
+}
+finally
+{
+    File.Delete(textFixture);
+}
+
+var pdfFixture = Environment.GetEnvironmentVariable("CLICKY_TEST_PDF");
+if (!string.IsNullOrWhiteSpace(pdfFixture) && File.Exists(pdfFixture))
+{
+    var pdfContext = await documentService.ExtractAsync(pdfFixture, CancellationToken.None);
+    Check(pdfContext.PageCount == 2, "PDF page count");
+    Check(pdfContext.Text.Contains("Clicky PDF verification", StringComparison.Ordinal), "PDF text extraction");
+    Check(pdfContext.Text.Contains("second page confirms extraction order", StringComparison.OrdinalIgnoreCase), "PDF multi-page extraction");
+}
+
 if (failures.Count == 0)
 {
     Console.WriteLine("Clicky smoke tests passed.");
