@@ -68,11 +68,37 @@ public sealed class ClickySettings
     public ProviderSettings Provider { get; set; } = new();
     public AudioSettings Audio { get; set; } = new();
     public AgentSettings Agent { get; set; } = new();
+    public EmailSettings Email { get; set; } = new();
 }
 
 public sealed class AgentSettings
 {
     public string WorkspacePath { get; set; } = string.Empty;
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum SmtpSecurityMode
+{
+    Auto,
+    StartTls,
+    SslOnConnect,
+    None
+}
+
+public sealed class EmailSettings
+{
+    public bool Enabled { get; set; }
+    public string SmtpHost { get; set; } = string.Empty;
+    public int SmtpPort { get; set; } = 587;
+    public SmtpSecurityMode Security { get; set; } = SmtpSecurityMode.Auto;
+    public string Username { get; set; } = string.Empty;
+    public string FromAddress { get; set; } = string.Empty;
+    public string FromName { get; set; } = "Clicky";
+
+    public bool IsConfigured => Enabled
+        && !string.IsNullOrWhiteSpace(SmtpHost)
+        && SmtpPort is > 0 and <= 65535
+        && !string.IsNullOrWhiteSpace(FromAddress);
 }
 
 public sealed class AudioSettings

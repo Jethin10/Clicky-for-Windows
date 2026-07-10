@@ -99,9 +99,22 @@ Nothing is written until **I reviewed these paths and changes** is checked and
 **Write files** is selected. Writes are atomic and existing files are backed up
 under `%LOCALAPPDATA%\Clicky\agent-backups` first.
 
-Agents still do not receive unrestricted filesystem, browser, shell, or email
-access. This upgrade supports approved text-file artifacts only; execution and
-external actions remain separate permission-gated features.
+Agents still do not receive unrestricted filesystem, browser, or shell access.
+Execution and other external actions remain separate permission-gated features.
+
+### Approval-gated email
+
+Enable email delivery in **Settings**, then enter an SMTP host, port, security
+mode, sender address, and optional account username. SMTP passwords and app
+passwords are stored in Windows Credential Manager rather than the settings
+file. Providers can propose one plain-text message with up to 10 validated
+To/Cc recipients, a 200-character subject, and a 100,000-character body.
+
+Clicky always opens a native review window showing the exact From, To, Cc,
+subject, and body. It does not contact the SMTP server until **Send this email
+now** is checked and **Send email** is selected. Accounts that require OAuth
+instead of SMTP passwords are not yet supported; use an app password where the
+mail provider permits one.
 
 ## Local documents and PDFs
 
@@ -133,7 +146,8 @@ the direct transcription endpoint and authentication header, provider audio
 configuration, pointer-tag parsing, text attachments, and optional multi-page
 PDF extraction through `CLICKY_TEST_PDF`. It also validates agent artifact JSON,
 path traversal rejection, atomic create/overwrite behavior, and overwrite
-backups.
+backups. Email tests cover proposal validation and a real MailKit delivery to a
+local loopback SMTP server without sending mail externally.
 
 ## Privacy behavior
 

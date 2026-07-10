@@ -80,6 +80,31 @@ var artifact = AgentArtifactParser.Parse(artifactResponse);
 Check(artifact.Package?.Files.Count == 2, "agent artifact package parsing");
 Check(artifact.VisibleText.Contains("built the page", StringComparison.Ordinal), "agent artifact visible response");
 
+var emailResponse = """
+    Draft ready.
+    [CLICKY_EMAIL]
+    {"to":["alex@example.com"],"cc":["team@example.com"],"subject":"Clicky update","body":"The Windows build is ready."}
+    [/CLICKY_EMAIL]
+    """;
+var emailProposal = AgentEmailParser.Parse(emailResponse);
+Check(emailProposal.Proposal?.To.Single() == "alex@example.com", "agent email recipient parsing");
+Check(emailProposal.Proposal?.Subject == "Clicky update", "agent email subject parsing");
+var invalidRecipientRejected = false;
+try
+{
+    _ = AgentEmailParser.Parse("[CLICKY_EMAIL]{\"to\":[\"not an address\"],\"subject\":\"Test\",\"body\":\"Hello\"}[/CLICKY_EMAIL]");
+}
+catch (InvalidOperationException)
+{
+    invalidRecipientRejected = true;
+}
+Check(invalidRecipientRejected, "agent invalid email recipient rejection");
+
+var smtpProbe = await ProbeSmtpDeliveryAsync(emailProposal.Proposal!);
+Check(smtpProbe.Contains("alex@example.com", StringComparison.OrdinalIgnoreCase), "SMTP recipient delivery");
+Check(smtpProbe.Contains("Subject: Clicky update", StringComparison.OrdinalIgnoreCase), "SMTP subject delivery");
+Check(smtpProbe.Contains("The Windows build is ready.", StringComparison.Ordinal), "SMTP body delivery");
+
 var workspaceService = new AgentWorkspaceService();
 var agentWorkspace = Path.Combine(Path.GetTempPath(), $"clicky-agent-{Guid.NewGuid():N}");
 Directory.CreateDirectory(agentWorkspace);
@@ -243,6 +268,87 @@ static int FindSequence(byte[] source, byte[] sequence)
     }
 
     return -1;
+}
+
+static async Task<string> ProbeSmtpDeliveryAsync(AgentEmailProposal proposal)
+{
+    var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+    var receivedMessage = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+    var server = Task.Run(async () =>
+    {
+        using var socket = await listener.AcceptTcpClientAsync();
+        await using var stream = socket.GetStream();
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true)
+        {
+            NewLine = "\r\n",
+            AutoFlush = true
+        };
+        await writer.WriteLineAsync("220 localhost Clicky SMTP probe");
+        var data = new StringBuilder();
+        var readingData = false;
+        while (await reader.ReadLineAsync() is { } line)
+        {
+            if (readingData)
+            {
+                if (line == ".")
+                {
+                    readingData = false;
+                    receivedMessage.TrySetResult(data.ToString());
+                    await writer.WriteLineAsync("250 accepted");
+                }
+                else
+                {
+                    data.AppendLine(line.StartsWith("..", StringComparison.Ordinal) ? line[1..] : line);
+                }
+                continue;
+            }
+
+            var command = line.Split(' ', 2)[0].ToUpperInvariant();
+            if (command is "EHLO" or "HELO")
+            {
+                await writer.WriteLineAsync("250-localhost");
+                await writer.WriteLineAsync("250 SIZE 1048576");
+            }
+            else if (command == "DATA")
+            {
+                readingData = true;
+                await writer.WriteLineAsync("354 end with <CRLF>.<CRLF>");
+            }
+            else if (command == "QUIT")
+            {
+                await writer.WriteLineAsync("221 bye");
+                break;
+            }
+            else
+            {
+                await writer.WriteLineAsync("250 ok");
+            }
+        }
+    });
+
+    try
+    {
+        var settings = new EmailSettings
+        {
+            Enabled = true,
+            SmtpHost = "127.0.0.1",
+            SmtpPort = port,
+            Security = SmtpSecurityMode.None,
+            FromAddress = "clicky@example.com",
+            FromName = "Clicky"
+        };
+        await new SmtpEmailService().SendAsync(settings, null, proposal, CancellationToken.None);
+        var message = await receivedMessage.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await server.WaitAsync(TimeSpan.FromSeconds(5));
+        return message;
+    }
+    finally
+    {
+        listener.Stop();
+    }
 }
 
 internal sealed record TranscriptionProbe(

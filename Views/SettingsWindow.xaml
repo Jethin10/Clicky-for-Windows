@@ -131,6 +131,29 @@
           <Button Grid.Column="1" Content="Browse" Click="BrowseWorkspace" Background="#202221" Foreground="#60A5FA" BorderThickness="0" Padding="12,8" Margin="8,0,0,0" Cursor="Hand" />
         </Grid>
 
+        <TextBlock Text="EMAIL DELIVERY" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <CheckBox x:Name="EmailEnabledCheck" Content="Allow approved agent emails through SMTP" Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,6,0,10" />
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0"><TextBlock Text="SMTP HOST" Foreground="{StaticResource Tertiary}" FontSize="10" /><TextBox x:Name="SmtpHostInput" Margin="0,6,0,0" /></StackPanel>
+          <StackPanel Grid.Column="2"><TextBlock Text="PORT" Foreground="{StaticResource Tertiary}" FontSize="10" /><TextBox x:Name="SmtpPortInput" Margin="0,6,0,0" /></StackPanel>
+        </Grid>
+        <TextBlock Text="SECURITY" Foreground="{StaticResource Tertiary}" FontSize="10" />
+        <ComboBox x:Name="SmtpSecurityBox" Margin="0,6,0,12" />
+        <TextBlock Text="SMTP USERNAME" Foreground="{StaticResource Tertiary}" FontSize="10" />
+        <TextBox x:Name="SmtpUsernameInput" Margin="0,6,0,12" />
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0"><TextBlock Text="FROM ADDRESS" Foreground="{StaticResource Tertiary}" FontSize="10" /><TextBox x:Name="FromAddressInput" Margin="0,6,0,0" /></StackPanel>
+          <StackPanel Grid.Column="2"><TextBlock Text="FROM NAME" Foreground="{StaticResource Tertiary}" FontSize="10" /><TextBox x:Name="FromNameInput" Margin="0,6,0,0" /></StackPanel>
+        </Grid>
+        <TextBlock Text="SMTP PASSWORD / APP PASSWORD" Foreground="{StaticResource Tertiary}" FontSize="10" />
+        <PasswordBox x:Name="EmailPasswordInput" Margin="0,6,0,0" />
+        <Grid Margin="0,5,0,14">
+          <TextBlock x:Name="EmailCredentialHint" Foreground="{StaticResource Tertiary}" FontSize="10" />
+          <Button HorizontalAlignment="Right" Content="Remove email password" Click="RemoveEmailPassword" Background="Transparent" Foreground="#E59A40" BorderThickness="0" Cursor="Hand" FontSize="10" />
+        </Grid>
+
         <Border Background="#171918" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="12">
           <TextBlock x:Name="StatusText" Text="Ready to configure." Foreground="{StaticResource Secondary}" TextWrapping="Wrap" FontSize="11" />
         </Border>

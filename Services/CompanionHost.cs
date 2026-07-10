@@ -17,6 +17,7 @@ public sealed class CompanionHost : IDisposable
     private readonly ScreenCaptureService _screenCapture = new();
     private readonly DocumentContextService _documentContextService = new();
     private readonly AgentWorkspaceService _agentWorkspaceService = new();
+    private readonly SmtpEmailService _smtpEmailService = new();
     private readonly OverlayHost _overlayHost = new();
     private readonly TrayService _trayService = new();
     private readonly CompanionPanelWindow _panel = new();
@@ -97,6 +98,12 @@ public sealed class CompanionHost : IDisposable
             && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_AGENT_APPROVAL"), "1", StringComparison.Ordinal))
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(ShowAgentApprovalVisualTest);
+        }
+
+        if (NativeMethods.IsVisualTest
+            && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_EMAIL_APPROVAL"), "1", StringComparison.Ordinal))
+        {
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(ShowEmailApprovalVisualTest);
         }
 
         if (NativeMethods.IsVisualTest
@@ -662,6 +669,12 @@ public sealed class CompanionHost : IDisposable
                 {"summary":"what the files implement","files":[{"path":"index.html","content":"complete file contents"}]}
                 [/CLICKY_FILES]
                 include at most twenty files. never include absolute paths, parent-directory traversal, binaries, commands, or claims that the files were already written. clicky will show the user every proposed file and require approval before writing. [POINT:none]
+
+                when the user explicitly asks to draft or send an email and supplies the recipients, include exactly one machine-readable proposal using this shape with valid JSON:
+                [CLICKY_EMAIL]
+                {"to":["person@example.com"],"cc":[],"subject":"Subject","body":"Complete plain-text message"}
+                [/CLICKY_EMAIL]
+                never invent recipients or claim the email was sent. clicky will show the complete proposal and require explicit approval before SMTP delivery.
                 """;
             var response = await AnalyzeConfiguredProviderAsync(
                 captures,
@@ -676,7 +689,8 @@ public sealed class CompanionHost : IDisposable
             }
 
             var artifactResult = AgentArtifactParser.Parse(response.Text);
-            var result = PointerTagParser.Parse(artifactResult.VisibleText).SpokenText;
+            var emailResult = AgentEmailParser.Parse(artifactResult.VisibleText);
+            var result = PointerTagParser.Parse(emailResult.VisibleText).SpokenText;
             if (artifactResult.Package is { } package)
             {
                 var writeResult = await ReviewAndWriteAgentFilesAsync(package, cancellationToken);
@@ -688,6 +702,13 @@ public sealed class CompanionHost : IDisposable
                 {
                     result = "The file proposal was not written.";
                 }
+            }
+            if (emailResult.Proposal is { } email)
+            {
+                var sent = await ReviewAndSendEmailAsync(email, cancellationToken);
+                result = sent
+                    ? $"Email sent to {string.Join(", ", email.To)}."
+                    : "The email proposal was not sent.";
             }
             if (string.IsNullOrWhiteSpace(result))
             {
@@ -720,6 +741,31 @@ public sealed class CompanionHost : IDisposable
                 _agentQueueGate.Release();
             }
         }
+    }
+
+    private async Task<bool> ReviewAndSendEmailAsync(
+        AgentEmailProposal proposal,
+        CancellationToken cancellationToken)
+    {
+        if (!_settings.Email.Enabled || !_settings.Email.IsConfigured)
+        {
+            _panel.SetAgentStatus("Configure and enable SMTP email delivery in Settings", active: false);
+            return false;
+        }
+
+        var approval = new EmailApprovalWindow(_settings.Email, proposal) { Owner = _panel };
+        if (approval.ShowDialog() != true || !approval.Approved)
+        {
+            return false;
+        }
+
+        _panel.SetAgentStatus("Sending approved email...", active: true);
+        await _smtpEmailService.SendAsync(
+            _settings.Email,
+            _credentialStore.ReadEmailPassword(),
+            proposal,
+            cancellationToken);
+        return true;
     }
 
     private async Task<AgentWriteResult?> ReviewAndWriteAgentFilesAsync(
@@ -774,6 +820,25 @@ public sealed class CompanionHost : IDisposable
             new AgentFilePlan("styles\\site.css", Path.Combine(workspace, "styles", "site.css"), package.Files[1].Content, true)
         };
         var window = new AgentFileApprovalWindow(workspace, package, plans) { Owner = _panel };
+        _ = window.ShowDialog();
+    }
+
+    private void ShowEmailApprovalVisualTest()
+    {
+        var settings = new EmailSettings
+        {
+            Enabled = true,
+            SmtpHost = "smtp.example.com",
+            SmtpPort = 587,
+            FromAddress = "clicky@example.com",
+            FromName = "Clicky"
+        };
+        var proposal = new AgentEmailProposal(
+            ["alex@example.com"],
+            ["team@example.com"],
+            "Project update and next steps",
+            "Hi Alex,\n\nThe Windows build is ready for review. The key workflows now pass their local verification checks.\n\nBest,\nClicky");
+        var window = new EmailApprovalWindow(settings, proposal) { Owner = _panel };
         _ = window.ShowDialog();
     }
 

@@ -26,18 +26,23 @@ public partial class SettingsWindow : Window
         _loading = true;
         PresetBox.ItemsSource = new[] { "OpenAI", "OpenRouter", "MiMo", "Local", "Custom" };
         ProtocolBox.ItemsSource = Enum.GetValues<ProviderProtocol>();
+        SmtpSecurityBox.ItemsSource = Enum.GetValues<SmtpSecurityMode>();
         var currentSettings = _settingsService.Load();
         var currentProvider = currentSettings.Provider;
         _safetyIdentifier = currentProvider.SafetyIdentifier;
         Apply(currentProvider);
         ApplyAudio(currentSettings.Audio);
         AgentWorkspaceInput.Text = currentSettings.Agent.WorkspacePath;
+        ApplyEmail(currentSettings.Email);
         CredentialHint.Text = string.IsNullOrWhiteSpace(_credentialStore.ReadApiKey())
             ? "No key is saved. Local endpoints may not require one."
             : "A key is saved. Leave this blank to keep it unchanged.";
         AudioCredentialHint.Text = string.IsNullOrWhiteSpace(_credentialStore.ReadAudioApiKey())
             ? "Uses the main provider key when blank."
             : "A separate audio key is saved.";
+        EmailCredentialHint.Text = string.IsNullOrWhiteSpace(_credentialStore.ReadEmailPassword())
+            ? "No SMTP password is saved."
+            : "An SMTP password or app password is saved.";
         _loading = false;
         Loaded += async (_, _) =>
         {
@@ -79,6 +84,17 @@ public partial class SettingsWindow : Window
         VoiceInput.Text = audio.Voice;
     }
 
+    private void ApplyEmail(EmailSettings email)
+    {
+        EmailEnabledCheck.IsChecked = email.Enabled;
+        SmtpHostInput.Text = email.SmtpHost;
+        SmtpPortInput.Text = email.SmtpPort.ToString();
+        SmtpSecurityBox.SelectedItem = email.Security;
+        SmtpUsernameInput.Text = email.Username;
+        FromAddressInput.Text = email.FromAddress;
+        FromNameInput.Text = email.FromName;
+    }
+
     private void PresetChanged(object sender, SelectionChangedEventArgs eventArgs)
     {
         if (_loading || PresetBox.SelectedItem is not string preset)
@@ -113,6 +129,17 @@ public partial class SettingsWindow : Window
     private AgentSettings ReadAgent() => new()
     {
         WorkspacePath = AgentWorkspaceInput.Text.Trim()
+    };
+
+    private EmailSettings ReadEmail() => new()
+    {
+        Enabled = EmailEnabledCheck.IsChecked == true,
+        SmtpHost = SmtpHostInput.Text.Trim(),
+        SmtpPort = int.TryParse(SmtpPortInput.Text, out var port) ? port : 0,
+        Security = SmtpSecurityBox.SelectedItem is SmtpSecurityMode security ? security : SmtpSecurityMode.Auto,
+        Username = SmtpUsernameInput.Text.Trim(),
+        FromAddress = FromAddressInput.Text.Trim(),
+        FromName = FromNameInput.Text.Trim()
     };
 
     private async void DiscoverModels(object sender, RoutedEventArgs eventArgs)
@@ -168,6 +195,14 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void RemoveEmailPassword(object sender, RoutedEventArgs eventArgs)
+    {
+        _credentialStore.DeleteEmailPassword();
+        EmailPasswordInput.Clear();
+        EmailCredentialHint.Text = "No SMTP password is saved.";
+        StatusText.Text = "Saved SMTP password removed from Windows Credential Manager.";
+    }
+
     private void Save(object sender, RoutedEventArgs eventArgs)
     {
         var provider = ReadProvider();
@@ -186,6 +221,10 @@ public partial class SettingsWindow : Window
         {
             _credentialStore.WriteAudioApiKey(AudioApiKeyInput.Password);
         }
+        if (!string.IsNullOrWhiteSpace(EmailPasswordInput.Password))
+        {
+            _credentialStore.WriteEmailPassword(EmailPasswordInput.Password);
+        }
 
         var audio = ReadAudio();
         if (audio.Enabled && !audio.IsConfigured(provider))
@@ -194,7 +233,14 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var settings = new ClickySettings { Provider = provider, Audio = audio, Agent = ReadAgent() };
+        var email = ReadEmail();
+        if (email.Enabled && !email.IsConfigured)
+        {
+            StatusText.Text = "Email delivery needs a valid SMTP host, port, and From address.";
+            return;
+        }
+
+        var settings = new ClickySettings { Provider = provider, Audio = audio, Agent = ReadAgent(), Email = email };
         _settingsService.Save(settings);
         SettingsSaved?.Invoke(settings);
         DialogResult = true;

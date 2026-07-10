@@ -114,4 +114,15 @@ Pass with two intentional Windows adaptations:
 
 ## Final result
 
+## Approval-gated email delivery — 2026-07-11
+
+- Added bounded email proposals with validated To/Cc recipients, subject, and
+  plain-text body.
+- Added a native review window that shows the complete message and keeps Send
+  disabled until the explicit confirmation checkbox is selected.
+- SMTP passwords remain in Windows Credential Manager and are never displayed
+  in the approval window or stored in the JSON settings file.
+- Added a deterministic email-approval snapshot mode and a loopback SMTP test
+  that verifies a real MailKit delivery without contacting an external server.
+
 passed

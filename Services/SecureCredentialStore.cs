@@ -10,6 +10,7 @@ public sealed class SecureCredentialStore
 {
     private const string PrimaryTargetName = "Clicky.Windows/primary-provider";
     private const string AudioTargetName = "Clicky.Windows/audio-provider";
+    private const string EmailTargetName = "Clicky.Windows/email-smtp";
     private const uint CredTypeGeneric = 1;
     private const uint CredPersistLocalMachine = 2;
 
@@ -17,13 +18,19 @@ public sealed class SecureCredentialStore
 
     public string? ReadAudioApiKey() => Read(AudioTargetName);
 
+    public string? ReadEmailPassword() => Read(EmailTargetName);
+
     public void WriteApiKey(string apiKey) => Write(PrimaryTargetName, apiKey);
 
     public void WriteAudioApiKey(string apiKey) => Write(AudioTargetName, apiKey);
 
+    public void WriteEmailPassword(string password) => Write(EmailTargetName, password);
+
     public void DeleteApiKey() => Delete(PrimaryTargetName);
 
     public void DeleteAudioApiKey() => Delete(AudioTargetName);
+
+    public void DeleteEmailPassword() => Delete(EmailTargetName);
 
     private static string? Read(string targetName)
     {
