@@ -124,6 +124,64 @@ public sealed class CompanionHost : IDisposable
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(StartOnboarding);
         }
+
+        if (NativeMethods.IsVisualTest
+            && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_PANEL_DISMISS"), "1", StringComparison.Ordinal))
+        {
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(RunPanelDismissVisualTest);
+        }
+        if (NativeMethods.IsVisualTest
+            && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_PANEL_OWNED"), "1", StringComparison.Ordinal))
+        {
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(RunOwnedWindowFocusVisualTest);
+        }
+    }
+
+    private async void RunPanelDismissVisualTest()
+    {
+        await Task.Delay(500);
+        var focusProbe = new Window
+        {
+            Width = 2,
+            Height = 2,
+            Left = -10_000,
+            Top = -10_000,
+            WindowStyle = WindowStyle.None,
+            ShowInTaskbar = false,
+            Opacity = 0.01,
+            Topmost = true
+        };
+        focusProbe.Show();
+        focusProbe.Activate();
+        await Task.Delay(700);
+        focusProbe.Close();
+    }
+
+    private async void RunOwnedWindowFocusVisualTest()
+    {
+        await Task.Delay(500);
+        var ownedProbe = new Window
+        {
+            Owner = _panel,
+            Width = 2,
+            Height = 2,
+            Left = -10_000,
+            Top = -10_000,
+            WindowStyle = WindowStyle.None,
+            ShowInTaskbar = false,
+            Opacity = 0.01,
+            Topmost = true
+        };
+        ownedProbe.Show();
+        ownedProbe.Activate();
+        await Task.Delay(700);
+        if (_panel.IsVisible)
+        {
+            File.WriteAllText(
+                Path.Combine(Path.GetTempPath(), "clicky-panel-owned-preserved.txt"),
+                "owned window preserved the panel");
+        }
+        ownedProbe.Close();
     }
 
     private void ValidateScreenCapture()

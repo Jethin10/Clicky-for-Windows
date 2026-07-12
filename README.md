@@ -11,6 +11,10 @@ desktop companion that follows the original public interaction:
    after release, sends the transcript and screenshots to your chosen model, speaks
    the answer, and can point to a returned `[POINT:…]` target.
 
+Like the public Mac panel, the tray panel dismisses when focus moves to another
+application. Settings, approvals, and result viewers owned by Clicky keep the
+panel alive so an in-progress workflow is never closed accidentally.
+
 ## Run it
 
 Use the self-contained Windows build:

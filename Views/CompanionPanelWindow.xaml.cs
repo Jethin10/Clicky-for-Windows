@@ -26,6 +26,7 @@ public partial class CompanionPanelWindow : Window
     {
         InitializeComponent();
         SourceInitialized += ExcludePanelFromCapture;
+        Deactivated += DismissWhenFocusLeavesClicky;
         Loaded += async (_, _) =>
         {
             if (!NativeMethods.IsVisualTest)
@@ -38,6 +39,26 @@ public partial class CompanionPanelWindow : Window
         };
         SetVoiceState(InteractionState.Idle);
         RefreshLayout();
+    }
+
+    private void DismissWhenFocusLeavesClicky(object? sender, EventArgs eventArgs)
+    {
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            if (!IsVisible || IsActive || OwnedWindows.Cast<Window>().Any(window => window.IsVisible))
+            {
+                return;
+            }
+
+            Hide();
+            if (NativeMethods.IsVisualTest
+                && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_PANEL_DISMISS"), "1", StringComparison.Ordinal))
+            {
+                File.WriteAllText(
+                    Path.Combine(Path.GetTempPath(), "clicky-panel-dismissed.txt"),
+                    "dismissed after focus left the panel");
+            }
+        }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
     }
 
     public event Action? StartRequested;

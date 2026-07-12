@@ -114,6 +114,16 @@ Pass with two intentional Windows adaptations:
 
 ## Final result
 
+## Tray-panel click-outside dismissal — 2026-07-12
+
+- Added deferred deactivation handling so the tray panel closes after focus
+  moves to another app, matching the public menu-bar panel behavior.
+- Preserved the panel whenever a visible owned Clicky window is active, covering
+  provider settings, email/file approvals, and full agent results.
+- Ran two native focus-transfer probes: an unowned transparent window caused
+  dismissal, while an owned transparent window kept the panel visible.
+- The full regression suite and self-contained native launch remain green.
+
 ## Cursor-following onboarding video — 2026-07-12
 
 - Added replayable playback of the exact public upstream Mux asset in a

@@ -31,7 +31,7 @@ not treated as finite requirements without a concrete public example.
 | Summarize a PDF and email it to the supplied team | selectable/scanned PDF extraction, local OCR, bounded email proposal, explicit SMTP approval | Verified |
 | Full research result remains retrievable after the background task finishes | latest-result panel and `AgentResultWindow`, complete-result copy, 500,000-character bound | Verified |
 | Replay the upstream cursor-following onboarding video | Same public Mux asset in a tracking-disabled WebView2 iframe, cursor-following native host, timed screen demo, local fallback | Verified |
-| Menu/tray panel dismisses when the user clicks elsewhere | Windows panel currently remains open until another action hides it | Gap |
+| Menu/tray panel dismisses when the user clicks elsewhere | deferred WPF deactivation dismissal with owned-window preservation; native focus-transfer probes | Verified |
 | Optional anonymous product analytics | Deliberately absent; no first-party endpoint or consent contract is published for this independent app | Not implemented by privacy choice |
 
 ## Non-features excluded from the requirement set
