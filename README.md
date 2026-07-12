@@ -174,7 +174,9 @@ dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release
 It covers spoken agent-command routing, WAV encoding, and deterministic loopback
 HTTP contract probes for OpenAI Responses, generic chat completions, OpenRouter,
 MiMo, the owner-operated Claude Worker, direct transcription, direct speech,
-and Worker speech. These verify endpoint paths, bearer and attribution headers,
+Worker speech, and AssemblyAI Worker token negotiation. These verify endpoint
+paths, bearer and attribution headers, the escaped secure WebSocket query,
+AssemblyAI Begin/partial/final/error events,
 multimodal/history payloads, provider-specific web-search shapes, cumulative SSE
 parsing, TTS request bodies, and returned audio bytes without using paid APIs or
 audio hardware. The suite also covers real Windows offline recognition of

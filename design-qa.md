@@ -201,3 +201,12 @@ Pass with two intentional Windows adaptations:
   OpenAI-compatible and Worker/ElevenLabs-style endpoint bodies and audio bytes
   without requiring paid credentials, internet access, or an audio device.
 - Release build completed with zero warnings and the expanded smoke suite passed.
+
+## AssemblyAI streaming contract validation — 2026-07-12
+
+- Verified the owner-operated Worker's `POST /transcribe-token` route and JSON
+  token extraction against a local HTTP server.
+- Verified the production secure WebSocket host/path, 16 kHz signed PCM
+  encoding, formatted-turn mode, `u3-rt-pro` model, and escaped token query.
+- Exercised Begin, partial Turn, formatted/final Turn, and Error event parsing
+  without requiring an AssemblyAI credential or recording ambient audio.

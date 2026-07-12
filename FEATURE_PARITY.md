@@ -20,7 +20,7 @@ not treated as finite requirements without a concrete public example.
 | Cursor-adjacent companion and global hold-to-talk shortcut | `OverlayHost`, `CursorOverlayWindow`, `ModifierPushToTalkMonitor` | Verified |
 | Capture only after push-to-talk and never continuously while idle | `CompanionHost.CompleteInteractionAsync`, capture-exclusion flags, privacy tests/QA | Verified |
 | See all connected screens and prioritize the cursor screen | `ScreenCaptureService.CaptureAllScreens`, labeled dimensions, multi-monitor point mapping | Verified |
-| Streaming AssemblyAI transcription with OpenAI and platform speech fallbacks | `AssemblyAiTranscriptionSession`, `OpenAiAudioClient`, `WindowsSpeechRecognitionService`; loopback and real offline PCM tests | Verified |
+| Streaming AssemblyAI transcription with OpenAI and platform speech fallbacks | Worker token/WSS/event contract probes, direct transcription loopback, and real offline PCM tests | Verified |
 | Spoken responses with ElevenLabs-style, compatible, and platform voice paths | Worker/direct TTS loopback contract probes plus Windows speech synthesis fallback | Verified |
 | Screen-aware conversational teaching with the last ten exchanges | both model clients plus bounded `_conversationHistory`; Responses/chat/Worker multimodal-history contract probes | Verified |
 | Animated blue cursor pointing on any monitor | point-tag parser, screenshot-to-screen mapping, Bézier flight overlay, native render | Verified |

@@ -127,6 +127,26 @@ Check(transcriptionProbe.SawExpectedPath, "direct transcription endpoint path");
 Check(transcriptionProbe.SawAuthorization, "direct transcription bearer authentication");
 Check(transcriptionProbe.SawWavePayload, "direct transcription WAV upload");
 
+var assemblyTokenProbe = await ProbeAssemblyTokenAsync();
+Check(assemblyTokenProbe.Token == "short lived/token+value", "AssemblyAI Worker token parsing");
+Check(assemblyTokenProbe.Request.Path == "/transcribe-token", "AssemblyAI Worker token endpoint path");
+var assemblySocketUri = AssemblyAiTranscriptionSession.BuildWebSocketUri(assemblyTokenProbe.Token);
+Check(assemblySocketUri.Scheme == "wss" && assemblySocketUri.Host == "streaming.assemblyai.com"
+    && assemblySocketUri.AbsolutePath == "/v3/ws", "AssemblyAI secure streaming endpoint");
+Check(assemblySocketUri.Query.Contains("sample_rate=16000", StringComparison.Ordinal)
+    && assemblySocketUri.Query.Contains("encoding=pcm_s16le", StringComparison.Ordinal)
+    && assemblySocketUri.Query.Contains("format_turns=true", StringComparison.Ordinal)
+    && assemblySocketUri.Query.Contains("speech_model=u3-rt-pro", StringComparison.Ordinal)
+    && assemblySocketUri.Query.Contains("token=short%20lived%2Ftoken%2Bvalue", StringComparison.Ordinal), "AssemblyAI streaming query and escaped token");
+var assemblyBegin = AssemblyAiTranscriptionSession.ParseServerMessage("{\"type\":\"Begin\"}");
+var assemblyPartial = AssemblyAiTranscriptionSession.ParseServerMessage("{\"type\":\"Turn\",\"transcript\":\"  partial words  \",\"end_of_turn\":false}");
+var assemblyFinal = AssemblyAiTranscriptionSession.ParseServerMessage("{\"type\":\"Turn\",\"transcript\":\"final words\",\"turn_is_formatted\":true}");
+var assemblyError = AssemblyAiTranscriptionSession.ParseServerMessage("{\"type\":\"Error\",\"error\":\"bad token\"}");
+Check(assemblyBegin.Type == "begin", "AssemblyAI Begin event parsing");
+Check(assemblyPartial.Transcript == "partial words" && !assemblyPartial.IsFinal, "AssemblyAI partial turn parsing");
+Check(assemblyFinal.Transcript == "final words" && assemblyFinal.IsFinal, "AssemblyAI final formatted turn parsing");
+Check(assemblyError.Type == "error" && assemblyError.Error == "bad token", "AssemblyAI error event parsing");
+
 var responsesProbe = await ProbeUniversalModelAsync("OpenAI", ProviderProtocol.OpenAiResponses);
 Check(responsesProbe.Result == "hello clicky", "OpenAI Responses SSE accumulation");
 Check(responsesProbe.Path == "/v1/responses", "OpenAI Responses endpoint path");
@@ -455,6 +475,21 @@ static async Task<HttpProbe> ProbeUniversalModelAsync(string preset, ProviderPro
         await server.Server.WaitAsync(TimeSpan.FromSeconds(5));
         Check(chunks.SequenceEqual(["hello ", "hello clicky"]), $"{preset} cumulative streaming callbacks");
         return request with { Result = result };
+    }
+    finally
+    {
+        server.Listener.Stop();
+    }
+}
+
+static async Task<(string Token, HttpProbe Request)> ProbeAssemblyTokenAsync()
+{
+    var server = StartHttpProbe("{\"token\":\"short lived/token+value\"}", "application/json");
+    try
+    {
+        var worker = ClickyWorkerConfiguration.FromBaseUrl($"http://127.0.0.1:{server.Port}");
+        var token = await AssemblyAiTranscriptionSession.FetchTokenAsync(worker, CancellationToken.None);
+        return (token, await server.Request.WaitAsync(TimeSpan.FromSeconds(5)));
     }
     finally
     {
