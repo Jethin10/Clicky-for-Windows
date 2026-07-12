@@ -41,6 +41,8 @@ public sealed class CompanionHost : IDisposable
     private DocumentContext? _attachedDocument;
     private AgentTaskResult? _latestAgentResult;
     private AgentResultWindow? _agentResultWindow;
+    private OnboardingVideoWindow? _onboardingVideoWindow;
+    private CancellationTokenSource? _onboardingCancellation;
 
     private AssemblyAiTranscriptionSession? _transcriptionSession;
     private Task? _transcriptionStartup;
@@ -131,7 +133,10 @@ public sealed class CompanionHost : IDisposable
 
     private void StartOnboarding()
     {
+        StopOnboarding();
         CancelInteraction();
+        _onboardingCancellation = new CancellationTokenSource();
+        var cancellationToken = _onboardingCancellation.Token;
         _overlayHost.Show();
         _overlayHost.SetState(InteractionState.Idle);
         _panel.SetVoiceState(InteractionState.Idle);
@@ -140,6 +145,77 @@ public sealed class CompanionHost : IDisposable
         if (NativeMethods.GetCursorPos(out var cursor))
         {
             _overlayHost.PointAt(new Drawing.Point(cursor.X, cursor.Y), "hey! i'm clicky");
+        }
+
+        _onboardingVideoWindow = new OnboardingVideoWindow();
+        _onboardingVideoWindow.PlaybackFinished += CompleteOnboardingVideo;
+        _onboardingVideoWindow.StartFollowingCursor();
+        _ = RunOnboardingDemoAsync(cancellationToken);
+    }
+
+    private async Task RunOnboardingDemoAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(40), cancellationToken);
+            var captures = await Task.Run(_screenCapture.CaptureAllScreens, cancellationToken);
+            if (captures.Count == 0)
+            {
+                return;
+            }
+            var response = await AnalyzeConfiguredProviderAsync(
+                captures,
+                "look at the current screen and choose one specific visible element near the center. make a playful observation in six words or fewer and point to it. [POINT:none] is allowed if nothing suitable is visible.",
+                history: [],
+                isolatedClient: true,
+                cancellationToken);
+            if (response is null)
+            {
+                return;
+            }
+            var pointing = PointerTagParser.Parse(response.Text);
+            var target = PointerTagParser.MapToScreen(pointing, captures);
+            if (target is { } point)
+            {
+                Dispatch(() =>
+                {
+                    _overlayHost.SetState(InteractionState.Idle);
+                    _overlayHost.PointAt(point, string.IsNullOrWhiteSpace(pointing.SpokenText) ? "right here!" : pointing.SpokenText);
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+            // Onboarding video and local fallback remain usable without a model.
+        }
+    }
+
+    private void CompleteOnboardingVideo()
+    {
+        _onboardingVideoWindow = null;
+        _onboardingCancellation?.Cancel();
+        _onboardingCancellation?.Dispose();
+        _onboardingCancellation = null;
+        if (NativeMethods.GetCursorPos(out var cursor))
+        {
+            _overlayHost.SetState(InteractionState.Idle);
+            _overlayHost.PointAt(new Drawing.Point(cursor.X, cursor.Y), "hold Control+Alt and introduce yourself");
+        }
+    }
+
+    private void StopOnboarding()
+    {
+        _onboardingCancellation?.Cancel();
+        _onboardingCancellation?.Dispose();
+        _onboardingCancellation = null;
+        if (_onboardingVideoWindow is not null)
+        {
+            _onboardingVideoWindow.PlaybackFinished -= CompleteOnboardingVideo;
+            _onboardingVideoWindow.Close();
+            _onboardingVideoWindow = null;
         }
     }
 
@@ -150,6 +226,7 @@ public sealed class CompanionHost : IDisposable
             return;
         }
 
+        StopOnboarding();
         CancelInteraction();
         _interactionCancellation = new CancellationTokenSource();
         var cancellationToken = _interactionCancellation.Token;
@@ -1104,6 +1181,7 @@ public sealed class CompanionHost : IDisposable
 
         _disposed = true;
         _agentCancellation.Cancel();
+        StopOnboarding();
         CancelInteraction();
         _pushToTalk.Dispose();
         _microphone.Dispose();

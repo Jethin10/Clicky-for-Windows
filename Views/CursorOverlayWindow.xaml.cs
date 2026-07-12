@@ -80,6 +80,15 @@ public partial class CursorOverlayWindow : Window
 
     public void SetState(InteractionState state)
     {
+        if (state == InteractionState.Listening)
+        {
+            _pointingCancellation?.Cancel();
+            _flightTimer.Stop();
+            _flightCompletion?.TrySetCanceled();
+            _isFlying = false;
+            _isPointing = false;
+            Bubble.Visibility = Visibility.Collapsed;
+        }
         _state = state;
         CursorTriangle.Visibility = state is InteractionState.Listening or InteractionState.Processing
             ? Visibility.Collapsed

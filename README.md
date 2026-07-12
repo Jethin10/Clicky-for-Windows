@@ -92,6 +92,16 @@ control with your own voice-provider credentials. Clicky does not reuse the
 upstream's analytics or email endpoints. Direct model keys saved in Windows
 Credential Manager are sent only to the base URL shown in provider settings.
 
+## Onboarding
+
+Choose **Replay onboarding** to play the same public Mux-hosted introduction
+referenced by the upstream app in a non-activating window beside the cursor.
+Playback uses Mux's official iframe player with tracking and cookies disabled.
+At roughly 40 seconds Clicky can demonstrate screen-aware pointing when an AI
+provider is configured. If the media, network, or WebView2 runtime is
+unavailable, a local quick-start card appears instead; onboarding never becomes
+network-dependent.
+
 ## Background agents
 
 Type a request in the Clicky panel and choose **Run agent**. Tasks execute in a

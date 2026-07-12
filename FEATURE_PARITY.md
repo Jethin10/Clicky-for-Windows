@@ -24,13 +24,13 @@ not treated as finite requirements without a concrete public example.
 | Spoken responses with ElevenLabs-style, compatible, and platform voice paths | Worker TTS, OpenAI-compatible TTS, Windows speech synthesis fallback | Verified |
 | Screen-aware conversational teaching with the last ten exchanges | both model clients plus bounded `_conversationHistory` | Verified |
 | Animated blue cursor pointing on any monitor | point-tag parser, screenshot-to-screen mapping, Bézier flight overlay, native render | Verified |
-| Permission/onboarding panel, model choice, replay, and quit controls | `CompanionPanelWindow`, permission rows, provider/model settings, replay/quit actions | Verified, except video noted below |
+| Permission/onboarding panel, model choice, replay, and quit controls | `CompanionPanelWindow`, permission rows, provider/model settings, replay/quit actions | Verified |
 | “HeyClicky agent” launches work without blocking the foreground interaction | voice router and serial background-agent queue | Verified |
 | Turn the visible Figma design into working webpage files | screen captures plus bounded file package, native approval, atomic workspace writes/backups | Verified |
 | Research products like the visible camera under a budget | provider web-search hooks plus persistent full agent-result viewer | Verified |
 | Summarize a PDF and email it to the supplied team | selectable/scanned PDF extraction, local OCR, bounded email proposal, explicit SMTP approval | Verified |
 | Full research result remains retrievable after the background task finishes | latest-result panel and `AgentResultWindow`, complete-result copy, 500,000-character bound | Verified |
-| Replay the upstream cursor-following onboarding video | Windows replay currently shows the cursor introduction but no video | Gap |
+| Replay the upstream cursor-following onboarding video | Same public Mux asset in a tracking-disabled WebView2 iframe, cursor-following native host, timed screen demo, local fallback | Verified |
 | Menu/tray panel dismisses when the user clicks elsewhere | Windows panel currently remains open until another action hides it | Gap |
 | Optional anonymous product analytics | Deliberately absent; no first-party endpoint or consent contract is published for this independent app | Not implemented by privacy choice |
 

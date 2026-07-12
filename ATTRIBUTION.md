@@ -23,3 +23,7 @@ the restored NuGet packages and published dependency metadata. The bundled
 Windows offline speech uses Microsoft's `System.Speech` package and the speech
 recognizers and text-to-speech voices installed in Windows. No speech model is
 downloaded or redistributed by this project.
+
+The optional onboarding stream remains hosted by its upstream owner on Mux and
+is not redistributed. Windows playback uses Microsoft's WebView2 runtime and
+Mux's documented iframe player with Mux tracking and cookies disabled.

@@ -8,6 +8,26 @@ using Drawing = System.Drawing;
 
 var failures = new List<string>();
 
+Check(OnboardingMediaService.ManifestUri.Scheme == Uri.UriSchemeHttps, "onboarding media uses HTTPS");
+Check(OnboardingMediaService.PlayerUri.Host == "player.mux.com", "onboarding uses official Mux player");
+Check(OnboardingMediaService.PlayerUri.Query.Contains("disable-tracking=true", StringComparison.Ordinal), "onboarding disables Mux tracking");
+Check(OnboardingMediaService.PlayerUri.Query.Contains("disable-cookies=true", StringComparison.Ordinal), "onboarding disables Mux cookies");
+var onboardingEmbed = OnboardingMediaService.BuildEmbedHtml();
+Check(onboardingEmbed.Contains("<iframe", StringComparison.OrdinalIgnoreCase)
+    && onboardingEmbed.Contains(OnboardingMediaService.PlaybackId, StringComparison.Ordinal), "onboarding iframe embed composition");
+var onboardingPosition = OnboardingMediaService.PositionNearCursor(
+    new Drawing.Point(1_900, 1_050),
+    new Drawing.Rectangle(0, 0, 1_920, 1_080),
+    370,
+    252);
+Check(onboardingPosition.Left < 1_530 && onboardingPosition.Top < 798, "onboarding flips left and above near screen edge");
+var secondaryPosition = OnboardingMediaService.PositionNearCursor(
+    new Drawing.Point(-1_900, 100),
+    new Drawing.Rectangle(-1_920, 0, 1_920, 1_080),
+    370,
+    252);
+Check(secondaryPosition.Left >= -1_920 && secondaryPosition.Top >= 0, "onboarding clamps within negative-coordinate monitor");
+
 Check(VoiceCommandRouter.TryExtractAgentCommand(
     "HeyClicky agent, find cameras under one thousand dollars",
     out var compactCommand)

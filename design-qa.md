@@ -114,6 +114,20 @@ Pass with two intentional Windows adaptations:
 
 ## Final result
 
+## Cursor-following onboarding video — 2026-07-12
+
+- Added replayable playback of the exact public upstream Mux asset in a
+  non-activating 370×252 window that follows the active cursor across screens.
+- Embedded Mux's official iframe player with tracking and cookies disabled;
+  WebView data is stored under Clicky's writable local app-data directory.
+- Added a bounded manifest probe, 72-second lifecycle, 40-second optional
+  screen-aware pointing demonstration, cancellation on push-to-talk, and a
+  12-second local tutorial fallback.
+- Captured and visually inspected a real video frame and the forced offline
+  fallback card. Both fill the player area and remain readable without clipping.
+- Verified the upstream HLS duration as 67.776 seconds and added tests for HTTPS,
+  official player host, privacy query flags, and iframe composition.
+
 ## Persistent background-agent results — 2026-07-11
 
 - Replaced the lossy 180-character completion bubble with a compact latest-result
