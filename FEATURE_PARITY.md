@@ -1,6 +1,6 @@
 # Public HeyClicky parity audit
 
-Audit date: 2026-07-11
+Audit date: 2026-07-12
 
 Authoritative public snapshot:
 
@@ -42,3 +42,8 @@ not treated as finite requirements without a concrete public example.
   pointing uses model-produced `[POINT:...]` tags instead.
 - Proprietary behavior not described on the official website cannot be audited
   from the older MIT source and is not claimed as implemented.
+- The privacy policy's references to HeyClicky accounts, payments, newsletters,
+  data-retention requests, and its hosted proxy describe the vendor's commercial
+  service operations, not additional observable desktop interaction features.
+  This independent Windows port uses user-selected direct providers or an
+  owner-operated Worker and does not impersonate HeyClicky's private service.

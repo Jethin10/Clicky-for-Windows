@@ -220,3 +220,5 @@ Pass with two intentional Windows adaptations:
   vulnerabilities, and publishes a self-contained x64 artifact for 14 days.
 - Rehearsing the exact job locally caught and corrected both stale test-binary
   reuse and an invalid no-restore RID publish before the workflow was pushed.
+- Pull-request run `29203853021` then passed all steps on GitHub's clean
+  `windows-latest` runner, including artifact upload.
