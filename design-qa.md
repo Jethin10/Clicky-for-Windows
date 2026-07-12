@@ -210,3 +210,13 @@ Pass with two intentional Windows adaptations:
   encoding, formatted-turn mode, `u3-rt-pro` model, and escaped token query.
 - Exercised Begin, partial Turn, formatted/final Turn, and Error event parsing
   without requiring an AssemblyAI credential or recording ambient audio.
+
+## Remote Windows validation — 2026-07-12
+
+- Added a bounded Windows GitHub Actions job for every pull request and push to
+  `main` or an `agent/**` branch.
+- The job cleanly restores and builds both the app and smoke-test executable,
+  runs the tests from the newly built assembly, audits transitive NuGet
+  vulnerabilities, and publishes a self-contained x64 artifact for 14 days.
+- Rehearsing the exact job locally caught and corrected both stale test-binary
+  reuse and an invalid no-restore RID publish before the workflow was pushed.

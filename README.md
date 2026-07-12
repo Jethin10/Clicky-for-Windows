@@ -1,5 +1,7 @@
 # Clicky for Windows
 
+[![Windows CI](https://github.com/Jethin10/Clicky-for-Windows/actions/workflows/windows-ci.yml/badge.svg)](https://github.com/Jethin10/Clicky-for-Windows/actions/workflows/windows-ci.yml)
+
 This is a native Windows port of the publicly available, MIT-licensed
 [`farzaa/clicky`](https://github.com/farzaa/clicky) snapshot. It is a tray-first
 desktop companion that follows the original public interaction:
@@ -170,6 +172,11 @@ Run the dependency-free smoke suite:
 ```powershell
 dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release
 ```
+
+The `Windows CI` GitHub Actions workflow performs a clean Release build of the
+app and smoke-test project, runs this suite, audits transitive NuGet
+dependencies, publishes a self-contained x64 build, and retains it as a
+14-day workflow artifact for every pull request and relevant branch push.
 
 It covers spoken agent-command routing, WAV encoding, and deterministic loopback
 HTTP contract probes for OpenAI Responses, generic chat completions, OpenRouter,

@@ -149,6 +149,7 @@ Check(assemblyError.Type == "error" && assemblyError.Error == "bad token", "Asse
 
 var responsesProbe = await ProbeUniversalModelAsync("OpenAI", ProviderProtocol.OpenAiResponses);
 Check(responsesProbe.Result == "hello clicky", "OpenAI Responses SSE accumulation");
+Check(responsesProbe.CallbacksValid, "OpenAI Responses cumulative streaming callbacks");
 Check(responsesProbe.Path == "/v1/responses", "OpenAI Responses endpoint path");
 Check(responsesProbe.Authorization == "Bearer model-key", "OpenAI Responses bearer authentication");
 Check(responsesProbe.Body.Contains("\"type\":\"input_image\"", StringComparison.Ordinal)
@@ -157,16 +158,19 @@ Check(responsesProbe.Body.Contains("\"type\":\"input_image\"", StringComparison.
 
 var compatibleProbe = await ProbeUniversalModelAsync("Custom", ProviderProtocol.OpenAiChatCompletions);
 Check(compatibleProbe.Result == "hello clicky", "compatible chat SSE accumulation");
+Check(compatibleProbe.CallbacksValid, "compatible chat cumulative streaming callbacks");
 Check(compatibleProbe.Path == "/v1/chat/completions", "compatible chat endpoint path");
 Check(compatibleProbe.Body.Contains("\"type\":\"image_url\"", StringComparison.Ordinal)
     && compatibleProbe.Body.Contains("\"max_tokens\":1200", StringComparison.Ordinal), "compatible chat multimodal payload");
 
 var openRouterProbe = await ProbeUniversalModelAsync("OpenRouter", ProviderProtocol.OpenAiChatCompletions);
+Check(openRouterProbe.CallbacksValid, "OpenRouter cumulative streaming callbacks");
 Check(openRouterProbe.Body.Contains("\"plugins\":[{\"id\":\"web\"}]", StringComparison.Ordinal), "OpenRouter web plugin payload");
 Check(openRouterProbe.Headers.Contains("X-OpenRouter-Title: Clicky for Windows", StringComparison.OrdinalIgnoreCase)
     && openRouterProbe.Headers.Contains("HTTP-Referer: https://github.com/Jethin10/Clicky-for-Windows", StringComparison.OrdinalIgnoreCase), "OpenRouter attribution headers");
 
 var mimoProbe = await ProbeUniversalModelAsync("MiMo", ProviderProtocol.OpenAiChatCompletions);
+Check(mimoProbe.CallbacksValid, "MiMo cumulative streaming callbacks");
 Check(mimoProbe.Body.Contains("\"max_completion_tokens\":1200", StringComparison.Ordinal)
     && mimoProbe.Body.Contains("\"type\":\"web_search\"", StringComparison.Ordinal)
     && mimoProbe.Body.Contains("\"max_keyword\":3", StringComparison.Ordinal), "MiMo token and web-search payload");
@@ -473,8 +477,11 @@ static async Task<HttpProbe> ProbeUniversalModelAsync(string preset, ProviderPro
             CancellationToken.None);
         var request = await server.Request.WaitAsync(TimeSpan.FromSeconds(5));
         await server.Server.WaitAsync(TimeSpan.FromSeconds(5));
-        Check(chunks.SequenceEqual(["hello ", "hello clicky"]), $"{preset} cumulative streaming callbacks");
-        return request with { Result = result };
+        return request with
+        {
+            Result = result,
+            CallbacksValid = chunks.SequenceEqual(["hello ", "hello clicky"])
+        };
     }
     finally
     {
@@ -704,7 +711,10 @@ internal sealed record TranscriptionProbe(
     bool SawAuthorization,
     bool SawWavePayload);
 
-internal sealed record HttpProbe(string Path, string Headers, string Authorization, string Body, string Result);
+internal sealed record HttpProbe(string Path, string Headers, string Authorization, string Body, string Result)
+{
+    public bool CallbacksValid { get; init; }
+}
 internal sealed record HttpProbeServer(int Port, TcpListener Listener, Task<HttpProbe> Request, Task Server);
 internal sealed record WorkerModelProbe(string Result, HttpProbe Request);
 internal sealed record AudioProbe(byte[] Audio, HttpProbe Request);
