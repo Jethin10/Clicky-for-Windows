@@ -189,4 +189,15 @@ Pass with two intentional Windows adaptations:
 - Added a deterministic email-approval snapshot mode and a loopback SMTP test
   that verifies a real MailKit delivery without contacting an external server.
 
-passed
+## Provider protocol contract validation — 2026-07-12
+
+- Exercised OpenAI Responses, generic OpenAI-compatible chat completions,
+  OpenRouter, MiMo, and the owner-operated Claude Worker against deterministic
+  local HTTP/SSE servers.
+- Verified exact route selection, bearer and OpenRouter attribution headers,
+  screenshot/history serialization, provider-specific web-search fields, and
+  cumulative streaming text callbacks.
+- Separated TTS synthesis transport from speaker playback and verified direct
+  OpenAI-compatible and Worker/ElevenLabs-style endpoint bodies and audio bytes
+  without requiring paid credentials, internet access, or an audio device.
+- Release build completed with zero warnings and the expanded smoke suite passed.

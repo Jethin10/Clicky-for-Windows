@@ -171,9 +171,14 @@ Run the dependency-free smoke suite:
 dotnet run --project .\Tests\Clicky.Windows.SmokeTests.csproj -c Release
 ```
 
-It covers spoken agent-command routing, WAV encoding, a loopback HTTP probe of
-the direct transcription endpoint and authentication header, provider audio
-configuration, real Windows offline recognition of synthesized 16 kHz PCM,
+It covers spoken agent-command routing, WAV encoding, and deterministic loopback
+HTTP contract probes for OpenAI Responses, generic chat completions, OpenRouter,
+MiMo, the owner-operated Claude Worker, direct transcription, direct speech,
+and Worker speech. These verify endpoint paths, bearer and attribution headers,
+multimodal/history payloads, provider-specific web-search shapes, cumulative SSE
+parsing, TTS request bodies, and returned audio bytes without using paid APIs or
+audio hardware. The suite also covers real Windows offline recognition of
+synthesized 16 kHz PCM,
 cloud-failure fallback routing, local voice discovery/synthesis, pointer-tag
 parsing, text attachments, and optional multi-page
 PDF extraction through `CLICKY_TEST_PDF`, local image OCR, and optional true

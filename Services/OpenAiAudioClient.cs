@@ -60,6 +60,15 @@ public sealed class OpenAiAudioClient : IDisposable
     public async Task SpeakAsync(string text, CancellationToken cancellationToken)
     {
         Stop();
+        _audioStream = new MemoryStream(await SynthesizeAsync(text, cancellationToken));
+        _reader = new Mp3FileReader(_audioStream);
+        _waveOut = new WaveOutEvent();
+        _waveOut.Init(_reader);
+        _waveOut.Play();
+    }
+
+    public async Task<byte[]> SynthesizeAsync(string text, CancellationToken cancellationToken)
+    {
         var requestBody = new
         {
             model = _audio.SpeechModel.Trim(),
@@ -77,11 +86,7 @@ public sealed class OpenAiAudioClient : IDisposable
             throw new HttpRequestException($"Audio speech returned {(int)response.StatusCode}: {TrimError(error)}");
         }
 
-        _audioStream = new MemoryStream(await response.Content.ReadAsByteArrayAsync(cancellationToken));
-        _reader = new Mp3FileReader(_audioStream);
-        _waveOut = new WaveOutEvent();
-        _waveOut.Init(_reader);
-        _waveOut.Play();
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
     }
 
     public void Stop()

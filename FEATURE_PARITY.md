@@ -21,13 +21,13 @@ not treated as finite requirements without a concrete public example.
 | Capture only after push-to-talk and never continuously while idle | `CompanionHost.CompleteInteractionAsync`, capture-exclusion flags, privacy tests/QA | Verified |
 | See all connected screens and prioritize the cursor screen | `ScreenCaptureService.CaptureAllScreens`, labeled dimensions, multi-monitor point mapping | Verified |
 | Streaming AssemblyAI transcription with OpenAI and platform speech fallbacks | `AssemblyAiTranscriptionSession`, `OpenAiAudioClient`, `WindowsSpeechRecognitionService`; loopback and real offline PCM tests | Verified |
-| Spoken responses with ElevenLabs-style, compatible, and platform voice paths | Worker TTS, OpenAI-compatible TTS, Windows speech synthesis fallback | Verified |
-| Screen-aware conversational teaching with the last ten exchanges | both model clients plus bounded `_conversationHistory` | Verified |
+| Spoken responses with ElevenLabs-style, compatible, and platform voice paths | Worker/direct TTS loopback contract probes plus Windows speech synthesis fallback | Verified |
+| Screen-aware conversational teaching with the last ten exchanges | both model clients plus bounded `_conversationHistory`; Responses/chat/Worker multimodal-history contract probes | Verified |
 | Animated blue cursor pointing on any monitor | point-tag parser, screenshot-to-screen mapping, Bézier flight overlay, native render | Verified |
 | Permission/onboarding panel, model choice, replay, and quit controls | `CompanionPanelWindow`, permission rows, provider/model settings, replay/quit actions | Verified |
 | “HeyClicky agent” launches work without blocking the foreground interaction | voice router and serial background-agent queue | Verified |
 | Turn the visible Figma design into working webpage files | screen captures plus bounded file package, native approval, atomic workspace writes/backups | Verified |
-| Research products like the visible camera under a budget | provider web-search hooks plus persistent full agent-result viewer | Verified |
+| Research products like the visible camera under a budget | contract-tested OpenAI, OpenRouter, and MiMo web-search hooks plus persistent full agent-result viewer | Verified |
 | Summarize a PDF and email it to the supplied team | selectable/scanned PDF extraction, local OCR, bounded email proposal, explicit SMTP approval | Verified |
 | Full research result remains retrievable after the background task finishes | latest-result panel and `AgentResultWindow`, complete-result copy, 500,000-character bound | Verified |
 | Replay the upstream cursor-following onboarding video | Same public Mux asset in a tracking-disabled WebView2 iframe, cursor-following native host, timed screen demo, local fallback | Verified |

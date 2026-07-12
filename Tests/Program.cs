@@ -127,6 +127,50 @@ Check(transcriptionProbe.SawExpectedPath, "direct transcription endpoint path");
 Check(transcriptionProbe.SawAuthorization, "direct transcription bearer authentication");
 Check(transcriptionProbe.SawWavePayload, "direct transcription WAV upload");
 
+var responsesProbe = await ProbeUniversalModelAsync("OpenAI", ProviderProtocol.OpenAiResponses);
+Check(responsesProbe.Result == "hello clicky", "OpenAI Responses SSE accumulation");
+Check(responsesProbe.Path == "/v1/responses", "OpenAI Responses endpoint path");
+Check(responsesProbe.Authorization == "Bearer model-key", "OpenAI Responses bearer authentication");
+Check(responsesProbe.Body.Contains("\"type\":\"input_image\"", StringComparison.Ordinal)
+    && responsesProbe.Body.Contains("\"type\":\"web_search\"", StringComparison.Ordinal)
+    && responsesProbe.Body.Contains("prior question", StringComparison.Ordinal), "OpenAI Responses multimodal history and web-search payload");
+
+var compatibleProbe = await ProbeUniversalModelAsync("Custom", ProviderProtocol.OpenAiChatCompletions);
+Check(compatibleProbe.Result == "hello clicky", "compatible chat SSE accumulation");
+Check(compatibleProbe.Path == "/v1/chat/completions", "compatible chat endpoint path");
+Check(compatibleProbe.Body.Contains("\"type\":\"image_url\"", StringComparison.Ordinal)
+    && compatibleProbe.Body.Contains("\"max_tokens\":1200", StringComparison.Ordinal), "compatible chat multimodal payload");
+
+var openRouterProbe = await ProbeUniversalModelAsync("OpenRouter", ProviderProtocol.OpenAiChatCompletions);
+Check(openRouterProbe.Body.Contains("\"plugins\":[{\"id\":\"web\"}]", StringComparison.Ordinal), "OpenRouter web plugin payload");
+Check(openRouterProbe.Headers.Contains("X-OpenRouter-Title: Clicky for Windows", StringComparison.OrdinalIgnoreCase)
+    && openRouterProbe.Headers.Contains("HTTP-Referer: https://github.com/Jethin10/Clicky-for-Windows", StringComparison.OrdinalIgnoreCase), "OpenRouter attribution headers");
+
+var mimoProbe = await ProbeUniversalModelAsync("MiMo", ProviderProtocol.OpenAiChatCompletions);
+Check(mimoProbe.Body.Contains("\"max_completion_tokens\":1200", StringComparison.Ordinal)
+    && mimoProbe.Body.Contains("\"type\":\"web_search\"", StringComparison.Ordinal)
+    && mimoProbe.Body.Contains("\"max_keyword\":3", StringComparison.Ordinal), "MiMo token and web-search payload");
+
+var workerProbe = await ProbeWorkerModelAsync();
+Check(workerProbe.Result == "worker reply", "Worker Claude SSE accumulation");
+Check(workerProbe.Request.Path == "/chat", "Worker Claude endpoint path");
+Check(workerProbe.Request.Body.Contains("\"type\":\"image\"", StringComparison.Ordinal)
+    && workerProbe.Request.Body.Contains("\"media_type\":\"image/jpeg\"", StringComparison.Ordinal)
+    && workerProbe.Request.Body.Contains("prior question", StringComparison.Ordinal), "Worker Claude multimodal history payload");
+
+var directSpeechProbe = await ProbeDirectSpeechAsync();
+Check(directSpeechProbe.Audio.SequenceEqual("fake-mp3"u8.ToArray()), "direct speech audio response");
+Check(directSpeechProbe.Request.Path == "/v1/audio/speech"
+    && directSpeechProbe.Request.Authorization == "Bearer speech-key", "direct speech endpoint and authentication");
+Check(directSpeechProbe.Request.Body.Contains("\"model\":\"tts-1-hd\"", StringComparison.Ordinal)
+    && directSpeechProbe.Request.Body.Contains("\"voice\":\"nova\"", StringComparison.Ordinal), "direct speech model and voice payload");
+
+var workerSpeechProbe = await ProbeWorkerSpeechAsync();
+Check(workerSpeechProbe.Audio.SequenceEqual("worker-mp3"u8.ToArray()), "Worker TTS audio response");
+Check(workerSpeechProbe.Request.Path == "/tts"
+    && workerSpeechProbe.Request.Body.Contains("\"model_id\":\"eleven_flash_v2_5\"", StringComparison.Ordinal)
+    && workerSpeechProbe.Request.Body.Contains("\"similarity_boost\":0.75", StringComparison.Ordinal), "Worker TTS endpoint and voice payload");
+
 var point = PointerTagParser.Parse("right here [POINT:320,240:button:screen2]");
 Check(point.SpokenText == "right here", "pointer spoken text");
 Check(point.Pixel == new Drawing.Point(320, 240), "pointer coordinates");
@@ -386,6 +430,135 @@ static async Task<TranscriptionProbe> ProbeTranscriptionEndpointAsync()
     }
 }
 
+static async Task<HttpProbe> ProbeUniversalModelAsync(string preset, ProviderProtocol protocol)
+{
+    var sse = protocol == ProviderProtocol.OpenAiResponses
+        ? "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hello \"}\n\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"clicky\"}\n\ndata: [DONE]\n\n"
+        : "data: {\"choices\":[{\"delta\":{\"content\":\"hello \"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"clicky\"}}]}\n\ndata: [DONE]\n\n";
+    var server = StartHttpProbe(sse, "text/event-stream");
+    try
+    {
+        var provider = ProviderSettings.FromPreset(preset);
+        provider.BaseUrl = $"http://127.0.0.1:{server.Port}/v1";
+        provider.Protocol = protocol;
+        provider.EnableWebSearch = true;
+        provider.Model = "contract-model";
+        using var client = new UniversalModelClient(provider, "model-key");
+        var chunks = new List<string>();
+        var result = await client.AnalyzeAsync(
+            [new CapturedScreen(new Drawing.Rectangle(0, 0, 800, 600), 800, 600, Convert.ToBase64String("jpeg"u8.ToArray()))],
+            "current question",
+            [new ConversationTurn("prior question", "prior answer")],
+            chunks.Add,
+            CancellationToken.None);
+        var request = await server.Request.WaitAsync(TimeSpan.FromSeconds(5));
+        await server.Server.WaitAsync(TimeSpan.FromSeconds(5));
+        Check(chunks.SequenceEqual(["hello ", "hello clicky"]), $"{preset} cumulative streaming callbacks");
+        return request with { Result = result };
+    }
+    finally
+    {
+        server.Listener.Stop();
+    }
+}
+
+static async Task<WorkerModelProbe> ProbeWorkerModelAsync()
+{
+    const string sse = "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"worker \"}}\n\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"reply\"}}\n\ndata: [DONE]\n\n";
+    var server = StartHttpProbe(sse, "text/event-stream");
+    try
+    {
+        using var client = new ClaudeWorkerClient(ClickyWorkerConfiguration.FromBaseUrl($"http://127.0.0.1:{server.Port}"));
+        var result = await client.AnalyzeAsync(
+            [new CapturedScreen(new Drawing.Rectangle(0, 0, 640, 480), 640, 480, Convert.ToBase64String("jpeg"u8.ToArray()))],
+            "current question", "claude-contract", [new ConversationTurn("prior question", "prior answer")], null, CancellationToken.None);
+        return new WorkerModelProbe(result, await server.Request.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+    finally
+    {
+        server.Listener.Stop();
+    }
+}
+
+static async Task<AudioProbe> ProbeDirectSpeechAsync()
+{
+    var server = StartHttpProbe("fake-mp3", "audio/mpeg");
+    try
+    {
+        var audio = new AudioSettings { BaseUrl = $"http://127.0.0.1:{server.Port}/v1", SpeechModel = "tts-1-hd", Voice = "nova" };
+        using var client = new OpenAiAudioClient(audio, ProviderSettings.FromPreset("OpenAI"), "speech-key");
+        var bytes = await client.SynthesizeAsync("speak this", CancellationToken.None);
+        return new AudioProbe(bytes, await server.Request.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+    finally
+    {
+        server.Listener.Stop();
+    }
+}
+
+static async Task<AudioProbe> ProbeWorkerSpeechAsync()
+{
+    var server = StartHttpProbe("worker-mp3", "audio/mpeg");
+    try
+    {
+        using var client = new ElevenLabsTtsPlayer(ClickyWorkerConfiguration.FromBaseUrl($"http://127.0.0.1:{server.Port}"));
+        var bytes = await client.SynthesizeAsync("speak this", CancellationToken.None);
+        return new AudioProbe(bytes, await server.Request.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+    finally
+    {
+        server.Listener.Stop();
+    }
+}
+
+static HttpProbeServer StartHttpProbe(string responseBody, string contentType)
+{
+    var listener = new TcpListener(IPAddress.Loopback, 0);
+    listener.Start();
+    var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+    var requestSource = new TaskCompletionSource<HttpProbe>(TaskCreationOptions.RunContinuationsAsynchronously);
+    var server = Task.Run(async () =>
+    {
+        using var socket = await listener.AcceptTcpClientAsync();
+        await using var stream = socket.GetStream();
+        using var received = new MemoryStream();
+        var buffer = new byte[8_192];
+        var headerEnd = -1;
+        var contentLength = 0;
+        while (true)
+        {
+            var count = await stream.ReadAsync(buffer);
+            if (count == 0) break;
+            received.Write(buffer, 0, count);
+            var bytes = received.ToArray();
+            if (headerEnd < 0)
+            {
+                headerEnd = FindSequence(bytes, "\r\n\r\n"u8.ToArray());
+                if (headerEnd >= 0)
+                {
+                    var headers = Encoding.ASCII.GetString(bytes, 0, headerEnd);
+                    var length = headers.Split("\r\n").FirstOrDefault(line => line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase));
+                    _ = int.TryParse(length?.Split(':', 2)[1].Trim(), out contentLength);
+                }
+            }
+            if (headerEnd >= 0 && bytes.Length >= headerEnd + 4 + contentLength)
+            {
+                var headers = Encoding.ASCII.GetString(bytes, 0, headerEnd);
+                var requestLine = headers.Split("\r\n")[0].Split(' ');
+                var auth = headers.Split("\r\n").FirstOrDefault(line => line.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase))?.Split(':', 2)[1].Trim() ?? "";
+                var body = Encoding.UTF8.GetString(bytes, headerEnd + 4, contentLength);
+                requestSource.TrySetResult(new HttpProbe(requestLine[1], headers, auth, body, ""));
+                break;
+            }
+        }
+        var payload = Encoding.UTF8.GetBytes(responseBody);
+        var responseHeaders = Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: {contentType}\r\nContent-Length: {payload.Length}\r\nConnection: close\r\n\r\n");
+        await stream.WriteAsync(responseHeaders);
+        await stream.WriteAsync(payload);
+    });
+    return new HttpProbeServer(port, listener, requestSource.Task, server);
+}
+
 static int FindSequence(byte[] source, byte[] sequence)
 {
     for (var index = 0; index <= source.Length - sequence.Length; index++)
@@ -495,3 +668,8 @@ internal sealed record TranscriptionProbe(
     bool SawExpectedPath,
     bool SawAuthorization,
     bool SawWavePayload);
+
+internal sealed record HttpProbe(string Path, string Headers, string Authorization, string Body, string Result);
+internal sealed record HttpProbeServer(int Port, TcpListener Listener, Task<HttpProbe> Request, Task Server);
+internal sealed record WorkerModelProbe(string Result, HttpProbe Request);
+internal sealed record AudioProbe(byte[] Audio, HttpProbe Request);

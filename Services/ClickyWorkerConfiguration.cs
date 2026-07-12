@@ -35,4 +35,16 @@ public sealed class ClickyWorkerConfiguration
 
         return new ClickyWorkerConfiguration(baseUri);
     }
+
+    public static ClickyWorkerConfiguration FromBaseUrl(string baseUrl)
+    {
+        var rawUrl = baseUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(rawUrl)
+            || !Uri.TryCreate(rawUrl.EndsWith('/') ? rawUrl : rawUrl + '/', UriKind.Absolute, out var baseUri))
+        {
+            throw new ArgumentException("Worker base URL must be an absolute URL.", nameof(baseUrl));
+        }
+
+        return new ClickyWorkerConfiguration(baseUri);
+    }
 }
