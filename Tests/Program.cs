@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Speech.AudioFormat;
 using System.Speech.Synthesis;
 using System.Text;
+using System.Text.Json;
 using Drawing = System.Drawing;
 
 var failures = new List<string>();
@@ -55,6 +56,9 @@ Check(BitConverter.ToInt16(wav, 22) == 1, "WAV mono channel count");
 
 var provider = ProviderSettings.FromPreset("OpenAI");
 var audio = new AudioSettings();
+Check(!new ClickySettings().OnboardingCompleted, "onboarding requires one explicit first-run continuation");
+var onboardingSettingsJson = JsonSerializer.Serialize(new ClickySettings { OnboardingCompleted = true });
+Check(JsonSerializer.Deserialize<ClickySettings>(onboardingSettingsJson)?.OnboardingCompleted == true, "onboarding completion persistence");
 Check(audio.IsConfigured(provider), "default direct-audio settings");
 Check(audio.EffectiveBaseUrl(provider) == provider.BaseUrl, "audio inherits provider base URL");
 Check(audio.EnableWindowsSpeechFallback, "Windows speech fallback enabled by default");

@@ -65,6 +65,7 @@ public sealed class CompanionHost : IDisposable
     public void Start()
     {
         _panel.StartRequested += StartOnboarding;
+        _panel.OnboardingCompleted += PersistOnboardingCompleted;
         _panel.ReplayRequested += StartOnboarding;
         _panel.ScreenRecordingRequested += ValidateScreenCapture;
         _panel.SettingsRequested += OpenSettings;
@@ -75,6 +76,7 @@ public sealed class CompanionHost : IDisposable
         _panel.RemoveDocumentRequested += RemoveDocument;
         _panel.ViewAgentResultRequested += ShowLatestAgentResult;
         _panel.SetWorkerConfigured(_worker.IsConfigured);
+        _panel.SetOnboardingCompleted(_settings.OnboardingCompleted);
         RefreshProviderStatus();
         if (NativeMethods.IsVisualTest
             && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_READY"), "1", StringComparison.Ordinal))
@@ -135,6 +137,17 @@ public sealed class CompanionHost : IDisposable
         {
             System.Windows.Application.Current.Dispatcher.BeginInvoke(RunOwnedWindowFocusVisualTest);
         }
+    }
+
+    private void PersistOnboardingCompleted()
+    {
+        if (_settings.OnboardingCompleted)
+        {
+            return;
+        }
+
+        _settings.OnboardingCompleted = true;
+        _settingsService.Save(_settings);
     }
 
     private async void RunPanelDismissVisualTest()

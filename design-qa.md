@@ -232,3 +232,12 @@ Pass with two intentional Windows adaptations:
 - Fixed the universal streaming client to surface direct and `response.failed`
   provider errors instead of silently returning an empty response, with a
   deterministic regression probe for the observed event shape.
+
+## Windows onboarding reachability fix — 2026-07-13
+
+- Removed the macOS-shaped hard gate that required four pseudo-permissions and
+  an email address before typed mode became reachable.
+- Accessibility, global hotkey, and display capture are presented as ready on
+  Windows; microphone settings remain optional for voice input.
+- Added an always-reachable **Continue to Clicky** action and persisted its
+  completion in local settings so restarts open directly to the ready panel.

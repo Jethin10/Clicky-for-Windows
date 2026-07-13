@@ -12,11 +12,6 @@ namespace Clicky.Windows.Views;
 
 public partial class CompanionPanelWindow : Window
 {
-    private bool _microphoneGranted;
-    private bool _accessibilityGranted;
-    private bool _screenGranted;
-    private bool _contentGranted;
-    private bool _emailSubmitted;
     private bool _onboarded;
 
     public bool IsOnboarded => _onboarded;
@@ -25,6 +20,9 @@ public partial class CompanionPanelWindow : Window
     public CompanionPanelWindow()
     {
         InitializeComponent();
+        UpdatePermission(AccessibilityButton, AccessibilityStatus);
+        UpdatePermission(ScreenButton, ScreenStatus);
+        UpdatePermission(ContentButton, ContentStatus);
         SourceInitialized += ExcludePanelFromCapture;
         Deactivated += DismissWhenFocusLeavesClicky;
         Loaded += async (_, _) =>
@@ -62,6 +60,7 @@ public partial class CompanionPanelWindow : Window
     }
 
     public event Action? StartRequested;
+    public event Action? OnboardingCompleted;
     public event Action? ReplayRequested;
     public event Action? ScreenRecordingRequested;
     public event Action? SettingsRequested;
@@ -139,11 +138,6 @@ public partial class CompanionPanelWindow : Window
             return;
         }
 
-        _microphoneGranted = true;
-        _accessibilityGranted = true;
-        _screenGranted = true;
-        _contentGranted = true;
-        _emailSubmitted = true;
         _onboarded = true;
         RefreshLayout();
         if (string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_ATTACHMENT"), "1", StringComparison.Ordinal))
@@ -154,6 +148,12 @@ public partial class CompanionPanelWindow : Window
                 ocr ? "3 pages, 1,842 characters (local OCR)" : "2 pages, 314 characters",
                 visible: true);
         }
+    }
+
+    public void SetOnboardingCompleted(bool completed)
+    {
+        _onboarded = completed;
+        RefreshLayout();
     }
 
     public void ShowPanel()
@@ -191,14 +191,12 @@ public partial class CompanionPanelWindow : Window
     private void GrantMicrophone(object? sender, RoutedEventArgs eventArgs)
     {
         OpenWindowsSettings("ms-settings:privacy-microphone");
-        _microphoneGranted = true;
         UpdatePermission(MicrophoneButton, MicrophoneStatus);
         RefreshLayout();
     }
 
     private void GrantAccessibility(object? sender, RoutedEventArgs eventArgs)
     {
-        _accessibilityGranted = true;
         UpdatePermission(AccessibilityButton, AccessibilityStatus);
         RefreshLayout();
     }
@@ -206,14 +204,12 @@ public partial class CompanionPanelWindow : Window
     private void GrantScreen(object? sender, RoutedEventArgs eventArgs)
     {
         ScreenRecordingRequested?.Invoke();
-        _screenGranted = true;
         UpdatePermission(ScreenButton, ScreenStatus);
         RefreshLayout();
     }
 
     private void GrantContent(object? sender, RoutedEventArgs eventArgs)
     {
-        _contentGranted = true;
         UpdatePermission(ContentButton, ContentStatus);
         RefreshLayout();
     }
@@ -230,14 +226,14 @@ public partial class CompanionPanelWindow : Window
             return;
         }
 
-        _emailSubmitted = true;
-        RefreshLayout();
+        StartClicky(sender, eventArgs);
     }
 
     private void StartClicky(object? sender, RoutedEventArgs eventArgs)
     {
         _onboarded = true;
         RefreshLayout();
+        OnboardingCompleted?.Invoke();
         StartRequested?.Invoke();
     }
 
@@ -308,12 +304,11 @@ public partial class CompanionPanelWindow : Window
 
     private void RefreshLayout()
     {
-        var allGranted = _microphoneGranted && _accessibilityGranted && _screenGranted && _contentGranted;
-        SetupCopyPanel.Visibility = allGranted || _onboarded ? Visibility.Collapsed : Visibility.Visible;
-        PermissionHeading.Visibility = allGranted || _onboarded ? Visibility.Collapsed : Visibility.Visible;
-        PermissionPanel.Visibility = allGranted || _onboarded ? Visibility.Collapsed : Visibility.Visible;
-        EmailPanel.Visibility = allGranted && !_emailSubmitted && !_onboarded ? Visibility.Visible : Visibility.Collapsed;
-        StartPanel.Visibility = allGranted && _emailSubmitted && !_onboarded ? Visibility.Visible : Visibility.Collapsed;
+        SetupCopyPanel.Visibility = _onboarded ? Visibility.Collapsed : Visibility.Visible;
+        PermissionHeading.Visibility = _onboarded ? Visibility.Collapsed : Visibility.Visible;
+        PermissionPanel.Visibility = _onboarded ? Visibility.Collapsed : Visibility.Visible;
+        EmailPanel.Visibility = Visibility.Collapsed;
+        StartPanel.Visibility = _onboarded ? Visibility.Collapsed : Visibility.Visible;
         ReadyPanel.Visibility = _onboarded ? Visibility.Visible : Visibility.Collapsed;
         SetVoiceState(InteractionState.Idle);
     }

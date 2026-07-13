@@ -65,6 +65,7 @@ public sealed class ProviderSettings
 public sealed class ClickySettings
 {
     public int Version { get; set; } = 1;
+    public bool OnboardingCompleted { get; set; }
     public ProviderSettings Provider { get; set; } = new();
     public AudioSettings Audio { get; set; } = new();
     public AgentSettings Agent { get; set; } = new();
