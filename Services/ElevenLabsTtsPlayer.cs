@@ -22,6 +22,15 @@ public sealed class ElevenLabsTtsPlayer : IDisposable
     public async Task SpeakAsync(string text, CancellationToken cancellationToken)
     {
         Stop();
+        _audioStream = new MemoryStream(await SynthesizeAsync(text, cancellationToken));
+        _reader = new Mp3FileReader(_audioStream);
+        _waveOut = new WaveOutEvent();
+        _waveOut.Init(_reader);
+        _waveOut.Play();
+    }
+
+    public async Task<byte[]> SynthesizeAsync(string text, CancellationToken cancellationToken)
+    {
         var requestBody = new
         {
             text,
@@ -34,11 +43,7 @@ public sealed class ElevenLabsTtsPlayer : IDisposable
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        _audioStream = new MemoryStream(await response.Content.ReadAsByteArrayAsync(cancellationToken));
-        _reader = new Mp3FileReader(_audioStream);
-        _waveOut = new WaveOutEvent();
-        _waveOut.Init(_reader);
-        _waveOut.Play();
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
     }
 
     public void Stop()

@@ -3,6 +3,7 @@ using Clicky.Windows.Native;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Forms = System.Windows.Forms;
@@ -11,11 +12,6 @@ namespace Clicky.Windows.Views;
 
 public partial class CompanionPanelWindow : Window
 {
-    private bool _microphoneGranted;
-    private bool _accessibilityGranted;
-    private bool _screenGranted;
-    private bool _contentGranted;
-    private bool _emailSubmitted;
     private bool _onboarded;
 
     public bool IsOnboarded => _onboarded;
@@ -24,7 +20,11 @@ public partial class CompanionPanelWindow : Window
     public CompanionPanelWindow()
     {
         InitializeComponent();
+        UpdatePermission(AccessibilityButton, AccessibilityStatus);
+        UpdatePermission(ScreenButton, ScreenStatus);
+        UpdatePermission(ContentButton, ContentStatus);
         SourceInitialized += ExcludePanelFromCapture;
+        Deactivated += DismissWhenFocusLeavesClicky;
         Loaded += async (_, _) =>
         {
             if (!NativeMethods.IsVisualTest)
@@ -39,11 +39,37 @@ public partial class CompanionPanelWindow : Window
         RefreshLayout();
     }
 
+    private void DismissWhenFocusLeavesClicky(object? sender, EventArgs eventArgs)
+    {
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            if (!IsVisible || IsActive || OwnedWindows.Cast<Window>().Any(window => window.IsVisible))
+            {
+                return;
+            }
+
+            Hide();
+            if (NativeMethods.IsVisualTest
+                && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_PANEL_DISMISS"), "1", StringComparison.Ordinal))
+            {
+                File.WriteAllText(
+                    Path.Combine(Path.GetTempPath(), "clicky-panel-dismissed.txt"),
+                    "dismissed after focus left the panel");
+            }
+        }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
     public event Action? StartRequested;
+    public event Action? OnboardingCompleted;
     public event Action? ReplayRequested;
     public event Action? ScreenRecordingRequested;
+    public event Action? SettingsRequested;
     public event Action? QuitRequested;
     public event Action<string>? ModelChanged;
+    public event Action<string, bool>? PromptSubmitted;
+    public event Action? AttachDocumentRequested;
+    public event Action? RemoveDocumentRequested;
+    public event Action? ViewAgentResultRequested;
 
     public void SetWorkerConfigured(bool isConfigured)
     {
@@ -54,6 +80,57 @@ public partial class CompanionPanelWindow : Window
             isConfigured ? "#6B736F" : "#E59A40"));
     }
 
+    public void SetProviderConfiguration(
+        ProviderSettings provider,
+        bool directProviderReady,
+        bool workerConfigured,
+        bool directAudioReady,
+        bool windowsSpeechReady)
+    {
+        if (directProviderReady)
+        {
+            ProviderNameText.Text = provider.DisplayName;
+            ProviderModelText.Text = provider.Model;
+            SelectedModel = provider.Model;
+            WorkerModelButtons.Visibility = Visibility.Collapsed;
+            WorkerStatus.Text = directAudioReady
+                ? "direct AI, transcription, and speech are ready"
+                : workerConfigured
+                    ? "direct AI is ready; your private worker handles voice"
+                    : windowsSpeechReady
+                        ? "direct AI is ready; Windows offline voice is ready"
+                        : "direct AI is ready; enable compatible voice endpoints";
+            WorkerStatus.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+                directAudioReady || workerConfigured || windowsSpeechReady ? "#6B736F" : "#E59A40"));
+            return;
+        }
+
+        ProviderNameText.Text = workerConfigured ? "Private Worker" : "No AI provider";
+        ProviderModelText.Text = workerConfigured ? SelectedModel : "Open Configure to connect one";
+        WorkerModelButtons.Visibility = workerConfigured ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public void SetAgentStatus(string status, bool active)
+    {
+        AgentStatusText.Text = status;
+        AgentStatusText.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+            active ? "#60A5FA" : "#6B736F"));
+    }
+
+    public void SetAgentResult(string providerName, string preview)
+    {
+        AgentResultPanel.Visibility = Visibility.Visible;
+        AgentResultTitleText.Text = $"Latest result · {providerName}";
+        AgentResultPreviewText.Text = preview.ReplaceLineEndings(" ").Trim();
+    }
+
+    public void SetAttachmentStatus(string fileName, string status, bool visible)
+    {
+        AttachmentPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        AttachmentNameText.Text = fileName;
+        AttachmentStatusText.Text = status;
+    }
+
     public void EnableVisualTestReadyState()
     {
         if (!NativeMethods.IsVisualTest)
@@ -61,12 +138,21 @@ public partial class CompanionPanelWindow : Window
             return;
         }
 
-        _microphoneGranted = true;
-        _accessibilityGranted = true;
-        _screenGranted = true;
-        _contentGranted = true;
-        _emailSubmitted = true;
         _onboarded = true;
+        RefreshLayout();
+        if (string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_ATTACHMENT"), "1", StringComparison.Ordinal))
+        {
+            var ocr = string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_OCR_ATTACHMENT"), "1", StringComparison.Ordinal);
+            SetAttachmentStatus(
+                ocr ? "scanned-project-brief.pdf" : "clicky-verification.pdf",
+                ocr ? "3 pages, 1,842 characters (local OCR)" : "2 pages, 314 characters",
+                visible: true);
+        }
+    }
+
+    public void SetOnboardingCompleted(bool completed)
+    {
+        _onboarded = completed;
         RefreshLayout();
     }
 
@@ -105,14 +191,12 @@ public partial class CompanionPanelWindow : Window
     private void GrantMicrophone(object? sender, RoutedEventArgs eventArgs)
     {
         OpenWindowsSettings("ms-settings:privacy-microphone");
-        _microphoneGranted = true;
         UpdatePermission(MicrophoneButton, MicrophoneStatus);
         RefreshLayout();
     }
 
     private void GrantAccessibility(object? sender, RoutedEventArgs eventArgs)
     {
-        _accessibilityGranted = true;
         UpdatePermission(AccessibilityButton, AccessibilityStatus);
         RefreshLayout();
     }
@@ -120,14 +204,12 @@ public partial class CompanionPanelWindow : Window
     private void GrantScreen(object? sender, RoutedEventArgs eventArgs)
     {
         ScreenRecordingRequested?.Invoke();
-        _screenGranted = true;
         UpdatePermission(ScreenButton, ScreenStatus);
         RefreshLayout();
     }
 
     private void GrantContent(object? sender, RoutedEventArgs eventArgs)
     {
-        _contentGranted = true;
         UpdatePermission(ContentButton, ContentStatus);
         RefreshLayout();
     }
@@ -144,14 +226,14 @@ public partial class CompanionPanelWindow : Window
             return;
         }
 
-        _emailSubmitted = true;
-        RefreshLayout();
+        StartClicky(sender, eventArgs);
     }
 
     private void StartClicky(object? sender, RoutedEventArgs eventArgs)
     {
         _onboarded = true;
         RefreshLayout();
+        OnboardingCompleted?.Invoke();
         StartRequested?.Invoke();
     }
 
@@ -175,6 +257,39 @@ public partial class CompanionPanelWindow : Window
         SonnetButton.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#ADB5B2"));
     }
 
+    private void OpenSettings(object? sender, RoutedEventArgs eventArgs) => SettingsRequested?.Invoke();
+
+    private void SubmitPrompt(object? sender, RoutedEventArgs eventArgs) => DispatchPrompt(agentMode: false);
+
+    private void SubmitAgentPrompt(object? sender, RoutedEventArgs eventArgs) => DispatchPrompt(agentMode: true);
+
+    private void AttachDocument(object? sender, RoutedEventArgs eventArgs) => AttachDocumentRequested?.Invoke();
+
+    private void RemoveDocument(object? sender, RoutedEventArgs eventArgs) => RemoveDocumentRequested?.Invoke();
+
+    private void ViewAgentResult(object? sender, RoutedEventArgs eventArgs) => ViewAgentResultRequested?.Invoke();
+
+    private void PromptKeyDown(object? sender, System.Windows.Input.KeyEventArgs eventArgs)
+    {
+        if (eventArgs.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            eventArgs.Handled = true;
+            DispatchPrompt(agentMode: false);
+        }
+    }
+
+    private void DispatchPrompt(bool agentMode)
+    {
+        var prompt = PromptInput.Text.Trim();
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return;
+        }
+
+        PromptInput.Clear();
+        PromptSubmitted?.Invoke(prompt, agentMode);
+    }
+
     private void OpenFeedback(object? sender, RoutedEventArgs eventArgs)
     {
         Process.Start(new ProcessStartInfo("https://x.com/FarzaTV") { UseShellExecute = true });
@@ -189,12 +304,11 @@ public partial class CompanionPanelWindow : Window
 
     private void RefreshLayout()
     {
-        var allGranted = _microphoneGranted && _accessibilityGranted && _screenGranted && _contentGranted;
-        SetupCopyPanel.Visibility = allGranted || _onboarded ? Visibility.Collapsed : Visibility.Visible;
-        PermissionHeading.Visibility = allGranted || _onboarded ? Visibility.Collapsed : Visibility.Visible;
-        PermissionPanel.Visibility = allGranted || _onboarded ? Visibility.Collapsed : Visibility.Visible;
-        EmailPanel.Visibility = allGranted && !_emailSubmitted && !_onboarded ? Visibility.Visible : Visibility.Collapsed;
-        StartPanel.Visibility = allGranted && _emailSubmitted && !_onboarded ? Visibility.Visible : Visibility.Collapsed;
+        SetupCopyPanel.Visibility = _onboarded ? Visibility.Collapsed : Visibility.Visible;
+        PermissionHeading.Visibility = _onboarded ? Visibility.Collapsed : Visibility.Visible;
+        PermissionPanel.Visibility = _onboarded ? Visibility.Collapsed : Visibility.Visible;
+        EmailPanel.Visibility = Visibility.Collapsed;
+        StartPanel.Visibility = _onboarded ? Visibility.Collapsed : Visibility.Visible;
         ReadyPanel.Visibility = _onboarded ? Visibility.Visible : Visibility.Collapsed;
         SetVoiceState(InteractionState.Idle);
     }

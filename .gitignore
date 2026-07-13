@@ -9,6 +9,7 @@
 # Publish artifacts (ship separately as release assets)
 publish/
 release/
+tmp/
 
 # Per-user IDE and environment files
 *.user

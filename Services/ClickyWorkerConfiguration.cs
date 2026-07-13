@@ -1,9 +1,9 @@
 namespace Clicky.Windows.Services;
 
 /// <summary>
-/// The app never accepts raw provider keys. Set CLICKY_WORKER_URL to a Worker
-/// you own that implements the public Clicky /chat, /tts and /transcribe-token
-/// endpoints. Without it, the desktop shell remains local-only.
+/// Voice services use an owner-operated Worker configured through
+/// CLICKY_WORKER_URL. Direct model provider keys are handled separately by
+/// SecureCredentialStore and never pass through this configuration object.
 /// </summary>
 public sealed class ClickyWorkerConfiguration
 {
@@ -31,6 +31,18 @@ public sealed class ClickyWorkerConfiguration
         if (string.IsNullOrWhiteSpace(rawUrl) || !Uri.TryCreate(rawUrl.EndsWith('/') ? rawUrl : rawUrl + '/', UriKind.Absolute, out var baseUri))
         {
             return new ClickyWorkerConfiguration(null);
+        }
+
+        return new ClickyWorkerConfiguration(baseUri);
+    }
+
+    public static ClickyWorkerConfiguration FromBaseUrl(string baseUrl)
+    {
+        var rawUrl = baseUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(rawUrl)
+            || !Uri.TryCreate(rawUrl.EndsWith('/') ? rawUrl : rawUrl + '/', UriKind.Absolute, out var baseUri))
+        {
+            throw new ArgumentException("Worker base URL must be an absolute URL.", nameof(baseUrl));
         }
 
         return new ClickyWorkerConfiguration(baseUri);

@@ -1,0 +1,47 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main, "agent/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install .NET 9 SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore Tests/Clicky.Windows.SmokeTests.csproj
+
+      - name: Build release
+        run: dotnet build Tests/Clicky.Windows.SmokeTests.csproj -c Release --no-restore
+
+      - name: Run smoke suite
+        run: dotnet run --project Tests/Clicky.Windows.SmokeTests.csproj -c Release --no-build
+
+      - name: Audit NuGet dependencies
+        run: dotnet list Clicky.Windows.csproj package --vulnerable --include-transitive
+
+      - name: Publish self-contained Windows app
+        run: dotnet publish Clicky.Windows.csproj -c Release -r win-x64 --self-contained true -o artifacts/win-x64
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v6
+        with:
+          name: clicky-windows-x64-${{ github.sha }}
+          path: artifacts/win-x64
+          if-no-files-found: error
+          retention-days: 14

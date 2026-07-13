@@ -32,6 +32,10 @@ public sealed class OverlayHost : IDisposable
             overlay.SetState(_state);
         }
 
+        // Seed the buddy from the real cursor synchronously. Waiting for the
+        // first 16 ms timer tick lets an immediate PointAt flight start at
+        // WPF's default (0,0), which visibly launches Clicky from a screen edge.
+        UpdateCursor();
         _cursorTimer.Start();
     }
 
@@ -64,7 +68,23 @@ public sealed class OverlayHost : IDisposable
     public void PointAt(Drawing.Point target, string phrase)
     {
         var overlay = _overlays.FirstOrDefault(window => window.Contains(target));
-        overlay?.PointAt(target, phrase);
+        if (overlay is not null)
+        {
+            overlay.PointAt(target, phrase);
+            return;
+        }
+
+        // Coordinate rounding at the far right or bottom edge must never turn a
+        // valid model response into a silent no-op.
+        var fallback = _overlays.FirstOrDefault();
+        if (fallback?.Tag is Drawing.Rectangle bounds)
+        {
+            fallback.PointAt(
+                new Drawing.Point(
+                    Math.Clamp(target.X, bounds.Left, bounds.Right - 1),
+                    Math.Clamp(target.Y, bounds.Top, bounds.Bottom - 1)),
+                phrase);
+        }
     }
 
     private void RefreshTopology()

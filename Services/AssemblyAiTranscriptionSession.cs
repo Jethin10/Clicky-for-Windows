@@ -63,7 +63,7 @@ public sealed class AssemblyAiTranscriptionSession : IAsyncDisposable
         }
     }
 
-    private static async Task<string> FetchTokenAsync(ClickyWorkerConfiguration worker, CancellationToken cancellationToken)
+    internal static async Task<string> FetchTokenAsync(ClickyWorkerConfiguration worker, CancellationToken cancellationToken)
     {
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         using var response = await client.PostAsync(worker.Endpoint("/transcribe-token"), content: null, cancellationToken);
@@ -74,7 +74,7 @@ public sealed class AssemblyAiTranscriptionSession : IAsyncDisposable
             ?? throw new InvalidOperationException("The transcription token response did not contain a token.");
     }
 
-    private static Uri BuildWebSocketUri(string token)
+    internal static Uri BuildWebSocketUri(string token)
     {
         var query = string.Join('&', new[]
         {
@@ -127,26 +127,20 @@ public sealed class AssemblyAiTranscriptionSession : IAsyncDisposable
 
     private void HandleServerMessage(string json)
     {
-        using var document = JsonDocument.Parse(json);
-        var root = document.RootElement;
-        var type = root.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
-        switch (type?.ToLowerInvariant())
+        var message = ParseServerMessage(json);
+        switch (message.Type)
         {
             case "begin":
                 _ready.TrySetResult(true);
                 break;
             case "turn":
-                var transcript = root.TryGetProperty("transcript", out var transcriptElement)
-                    ? transcriptElement.GetString()?.Trim() ?? string.Empty
-                    : string.Empty;
+                var transcript = message.Transcript;
                 if (!string.IsNullOrEmpty(transcript))
                 {
                     _latestTranscript = transcript;
                 }
 
-                var isFinal = (root.TryGetProperty("end_of_turn", out var endElement) && endElement.GetBoolean())
-                    || (root.TryGetProperty("turn_is_formatted", out var formattedElement) && formattedElement.GetBoolean());
-                if (_finalizing && isFinal)
+                if (_finalizing && message.IsFinal)
                 {
                     _finalTranscript.TrySetResult(_latestTranscript);
                 }
@@ -159,16 +153,31 @@ public sealed class AssemblyAiTranscriptionSession : IAsyncDisposable
                 }
                 break;
             case "error":
-                var message = root.TryGetProperty("error", out var errorElement)
-                    ? errorElement.GetString()
-                    : "AssemblyAI returned an error.";
-                _ready.TrySetException(new InvalidOperationException(message));
+                _ready.TrySetException(new InvalidOperationException(message.Error ?? "AssemblyAI returned an error."));
                 if (_finalizing)
                 {
                     _finalTranscript.TrySetResult(_latestTranscript);
                 }
                 break;
         }
+    }
+
+    internal static AssemblyAiServerMessage ParseServerMessage(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var type = root.TryGetProperty("type", out var typeElement)
+            ? typeElement.GetString()?.ToLowerInvariant() ?? string.Empty
+            : string.Empty;
+        var transcript = root.TryGetProperty("transcript", out var transcriptElement)
+            ? transcriptElement.GetString()?.Trim() ?? string.Empty
+            : string.Empty;
+        var isFinal = (root.TryGetProperty("end_of_turn", out var endElement) && endElement.ValueKind == JsonValueKind.True)
+            || (root.TryGetProperty("turn_is_formatted", out var formattedElement) && formattedElement.ValueKind == JsonValueKind.True);
+        var error = root.TryGetProperty("error", out var errorElement)
+            ? errorElement.GetString()
+            : null;
+        return new AssemblyAiServerMessage(type, transcript, isFinal, error);
     }
 
     private async Task SendJsonAsync(string json, CancellationToken cancellationToken)
@@ -211,3 +220,5 @@ public sealed class AssemblyAiTranscriptionSession : IAsyncDisposable
         _receiveCancellation.Dispose();
     }
 }
+
+internal sealed record AssemblyAiServerMessage(string Type, string Transcript, bool IsFinal, string? Error);

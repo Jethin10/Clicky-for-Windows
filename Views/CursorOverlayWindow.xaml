@@ -23,7 +23,7 @@
             Fill="#3380FF"
             Effect="{DynamicResource CursorGlow}">
         <Path.RenderTransform>
-          <RotateTransform Angle="-35" CenterX="8" CenterY="8" />
+          <RotateTransform x:Name="CursorRotation" Angle="-35" CenterX="8" CenterY="8" />
         </Path.RenderTransform>
       </Path>
       <Grid x:Name="Waveform" Visibility="Collapsed" Width="26" Height="22" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,3,0,0">
@@ -43,6 +43,9 @@
         <Ellipse Width="17" Height="17" Stroke="#3380FF" StrokeThickness="2.4" StrokeDashArray="2 1" Opacity="0.96" />
       </Grid>
       <Border x:Name="Bubble" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,19,0,0" Padding="9,6,9,7" MaxWidth="154" Background="#3380FF" CornerRadius="10">
+        <Border.RenderTransform>
+          <TranslateTransform x:Name="BubbleOffset" />
+        </Border.RenderTransform>
         <Border.Effect>
           <DropShadowEffect Color="#3380FF" BlurRadius="15" ShadowDepth="0" Opacity="0.56" />
         </Border.Effect>

@@ -8,3 +8,22 @@ The original source's MIT license is included verbatim in
 is not affiliated with HeyClicky or Farza Majeed. The public upstream source was
 used as the feature reference; proprietary HeyClicky features are not present in
 that source and are not claimed here.
+
+Local scanned-document support uses
+[`TesseractOCR`](https://github.com/Sicos1977/TesseractOCR) and
+[`Tesseract`](https://github.com/tesseract-ocr/tesseract) under Apache-2.0,
+English model data from
+[`tessdata_fast`](https://github.com/tesseract-ocr/tessdata_fast), and
+[`PDFtoImage`](https://github.com/sungaila/PDFtoImage) under MIT. PDF rendering
+is backed by PDFium and SkiaSharp. Their package licenses and notices remain in
+the restored NuGet packages and published dependency metadata. The bundled
+`eng.traineddata` asset has SHA-256
+`7D4322BD2A7749724879683FC3912CB542F19906C83BCC1A52132556427170B2`.
+
+Windows offline speech uses Microsoft's `System.Speech` package and the speech
+recognizers and text-to-speech voices installed in Windows. No speech model is
+downloaded or redistributed by this project.
+
+The optional onboarding stream remains hosted by its upstream owner on Mux and
+is not redistributed. Windows playback uses Microsoft's WebView2 runtime and
+Mux's documented iframe player with Mux tracking and cookies disabled.

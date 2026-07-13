@@ -1,0 +1,176 @@
+<Window x:Class="Clicky.Windows.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Clicky settings" Width="460" Height="620"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="#101211" Foreground="#ECEEED">
+  <Window.Resources>
+    <SolidColorBrush x:Key="Surface" Color="#202221" />
+    <SolidColorBrush x:Key="Border" Color="#373B39" />
+    <SolidColorBrush x:Key="Secondary" Color="#ADB5B2" />
+    <SolidColorBrush x:Key="Tertiary" Color="#77807C" />
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="#171918" />
+      <Setter Property="Foreground" Value="#ECEEED" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="FontFamily" Value="Segoe UI Variable" />
+    </Style>
+    <Style TargetType="PasswordBox">
+      <Setter Property="Background" Value="#171918" />
+      <Setter Property="Foreground" Value="#ECEEED" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
+    <Style TargetType="ComboBox">
+      <Setter Property="Background" Value="#202221" />
+      <Setter Property="Foreground" Value="#101211" />
+      <Setter Property="BorderBrush" Value="{StaticResource Border}" />
+      <Setter Property="Padding" Value="7" />
+      <Setter Property="FontFamily" Value="Segoe UI Variable" />
+    </Style>
+    <Style TargetType="ComboBoxItem">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#101211" />
+      <Setter Property="Padding" Value="8,5" />
+    </Style>
+    <Style x:Key="ActionButton" TargetType="Button">
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Background" Value="#2563EB" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="15,9" />
+      <Setter Property="FontFamily" Value="Segoe UI Variable" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+  </Window.Resources>
+
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <StackPanel>
+      <TextBlock Text="AI provider" FontFamily="Segoe UI Variable" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Text="Connect any OpenAI Responses or OpenAI-compatible endpoint. Secrets stay in Windows Credential Manager."
+                 Foreground="{StaticResource Secondary}" TextWrapping="Wrap" Margin="0,7,0,0" FontSize="12" />
+    </StackPanel>
+
+    <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,22,0,16">
+      <StackPanel>
+        <TextBlock Text="PROVIDER PRESET" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <ComboBox x:Name="PresetBox" SelectionChanged="PresetChanged" Margin="0,6,0,14" />
+
+        <TextBlock Text="DISPLAY NAME" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <TextBox x:Name="DisplayNameInput" Margin="0,6,0,14" />
+
+        <TextBlock Text="BASE URL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <TextBox x:Name="BaseUrlInput" Margin="0,6,0,14" />
+
+        <TextBlock Text="API PROTOCOL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <ComboBox x:Name="ProtocolBox" Margin="0,6,0,14" />
+
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+          <TextBlock Text="MODEL ID" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="Discover models" Click="DiscoverModels" Background="Transparent" Foreground="#60A5FA" BorderThickness="0" Cursor="Hand" />
+        </Grid>
+        <ComboBox x:Name="ModelBox" IsEditable="True" IsTextSearchEnabled="True" Margin="0,6,0,14" />
+
+        <TextBlock Text="API KEY" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <PasswordBox x:Name="ApiKeyInput" Margin="0,6,0,0" />
+        <Grid Margin="0,5,0,14">
+          <TextBlock x:Name="CredentialHint" Foreground="{StaticResource Tertiary}" FontSize="10" />
+          <Button HorizontalAlignment="Right" Content="Remove saved key" Click="RemoveSavedKey" Background="Transparent" Foreground="#E59A40" BorderThickness="0" Cursor="Hand" FontSize="10" />
+        </Grid>
+
+        <CheckBox x:Name="SendScreenshotsCheck" Content="Send current screen captures to vision-capable models"
+                  Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,8" />
+        <CheckBox x:Name="WebSearchCheck" Content="Allow this provider's web-search tool for agent requests"
+                  Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,14" />
+
+        <TextBlock Text="VOICE" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" Margin="0,4,0,6" />
+        <CheckBox x:Name="DirectAudioCheck" Content="Use OpenAI-compatible transcription and speech endpoints"
+                  Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,10" />
+        <CheckBox x:Name="LocalSpeechCheck" Content="Fall back to Windows offline recognition and voice"
+                  Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,0,0,8" />
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <ComboBox x:Name="LocalSpeechCultureBox" Grid.Column="0" />
+          <TextBlock x:Name="LocalSpeechStatus" Grid.Column="1" Margin="10,0,0,0" Foreground="{StaticResource Tertiary}" FontSize="10" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </Grid>
+
+        <TextBlock Text="AUDIO BASE URL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <TextBox x:Name="AudioBaseUrlInput" Margin="0,6,0,4" />
+        <TextBlock Text="Leave blank to use the AI provider base URL and saved key."
+                   Foreground="{StaticResource Tertiary}" FontSize="10" Margin="0,0,0,12" />
+
+        <TextBlock Text="AUDIO API KEY (OPTIONAL)" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <PasswordBox x:Name="AudioApiKeyInput" Margin="0,6,0,0" />
+        <Grid Margin="0,5,0,12">
+          <TextBlock x:Name="AudioCredentialHint" Foreground="{StaticResource Tertiary}" FontSize="10" />
+          <Button HorizontalAlignment="Right" Content="Remove audio key" Click="RemoveAudioKey" Background="Transparent" Foreground="#E59A40" BorderThickness="0" Cursor="Hand" FontSize="10" />
+        </Grid>
+
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <TextBlock Text="TRANSCRIPTION MODEL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+            <TextBox x:Name="TranscriptionModelInput" Margin="0,6,0,0" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="SPEECH MODEL" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+            <TextBox x:Name="SpeechModelInput" Margin="0,6,0,0" />
+          </StackPanel>
+        </Grid>
+
+        <TextBlock Text="VOICE ID" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <TextBox x:Name="VoiceInput" Margin="0,6,0,14" />
+
+        <TextBlock Text="AGENT WORKSPACE" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <Grid Margin="0,6,0,14">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+          <TextBox x:Name="AgentWorkspaceInput" Grid.Column="0" />
+          <Button Grid.Column="1" Content="Browse" Click="BrowseWorkspace" Background="#202221" Foreground="#60A5FA" BorderThickness="0" Padding="12,8" Margin="8,0,0,0" Cursor="Hand" />
+        </Grid>
+
+        <TextBlock Text="EMAIL DELIVERY" Foreground="{StaticResource Tertiary}" FontSize="10" FontWeight="SemiBold" />
+        <CheckBox x:Name="EmailEnabledCheck" Content="Allow approved agent emails through SMTP" Foreground="{StaticResource Secondary}" FontSize="11" Margin="0,6,0,10" />
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0"><TextBlock Text="SMTP HOST" Foreground="{StaticResource Tertiary}" FontSize="10" /><TextBox x:Name="SmtpHostInput" Margin="0,6,0,0" /></StackPanel>
+          <StackPanel Grid.Column="2"><TextBlock Text="PORT" Foreground="{StaticResource Tertiary}" FontSize="10" /><TextBox x:Name="SmtpPortInput" Margin="0,6,0,0" /></StackPanel>
+        </Grid>
+        <TextBlock Text="SECURITY" Foreground="{StaticResource Tertiary}" FontSize="10" />
+        <ComboBox x:Name="SmtpSecurityBox" Margin="0,6,0,12" />
+        <TextBlock Text="SMTP USERNAME" Foreground="{StaticResource Tertiary}" FontSize="10" />
+        <TextBox x:Name="SmtpUsernameInput" Margin="0,6,0,12" />
+        <Grid Margin="0,0,0,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0"><TextBlock Text="FROM ADDRESS" Foreground="{StaticResource Tertiary}" FontSize="10" /><TextBox x:Name="FromAddressInput" Margin="0,6,0,0" /></StackPanel>
+          <StackPanel Grid.Column="2"><TextBlock Text="FROM NAME" Foreground="{StaticResource Tertiary}" FontSize="10" /><TextBox x:Name="FromNameInput" Margin="0,6,0,0" /></StackPanel>
+        </Grid>
+        <TextBlock Text="SMTP PASSWORD / APP PASSWORD" Foreground="{StaticResource Tertiary}" FontSize="10" />
+        <PasswordBox x:Name="EmailPasswordInput" Margin="0,6,0,0" />
+        <Grid Margin="0,5,0,14">
+          <TextBlock x:Name="EmailCredentialHint" Foreground="{StaticResource Tertiary}" FontSize="10" />
+          <Button HorizontalAlignment="Right" Content="Remove email password" Click="RemoveEmailPassword" Background="Transparent" Foreground="#E59A40" BorderThickness="0" Cursor="Hand" FontSize="10" />
+        </Grid>
+
+        <Border Background="#171918" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="12">
+          <TextBlock x:Name="StatusText" Text="Ready to configure." Foreground="{StaticResource Secondary}" TextWrapping="Wrap" FontSize="11" />
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Grid Grid.Row="2">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+      <Button Grid.Column="1" Content="Cancel" Click="Cancel" Background="#202221" Foreground="{StaticResource Secondary}" BorderThickness="0" Padding="15,9" Margin="0,0,8,0" Cursor="Hand" />
+      <Button Grid.Column="2" Content="Save provider" Click="Save" Style="{StaticResource ActionButton}" />
+    </Grid>
+  </Grid>
+</Window>

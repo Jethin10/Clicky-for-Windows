@@ -38,8 +38,8 @@ public static partial class PointerTagParser
             ? Math.Clamp(screenNumber - 1, 0, captures.Count - 1)
             : 0;
         var capture = captures[index];
-        var x = Math.Clamp(tag.Pixel.Value.X, 0, capture.Width);
-        var y = Math.Clamp(tag.Pixel.Value.Y, 0, capture.Height);
+        var x = Math.Clamp(tag.Pixel.Value.X, 0, Math.Max(0, capture.Width - 1));
+        var y = Math.Clamp(tag.Pixel.Value.Y, 0, Math.Max(0, capture.Height - 1));
         return new Drawing.Point(
             capture.Bounds.Left + (int)Math.Round(x * capture.Bounds.Width / (double)capture.Width),
             capture.Bounds.Top + (int)Math.Round(y * capture.Bounds.Height / (double)capture.Height));
