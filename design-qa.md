@@ -222,3 +222,13 @@ Pass with two intentional Windows adaptations:
   reuse and an invalid no-restore RID publish before the workflow was pushed.
 - Pull-request run `29203853021` then passed all steps on GitHub's clean
   `windows-latest` runner, including artifact upload.
+
+## Live OpenAI failure-path validation — 2026-07-13
+
+- Authenticated model discovery with a user-supplied project key and confirmed
+  that the configured `gpt-5.6-luna` model is visible.
+- A live Responses stream returned an HTTP-200 SSE `error` event for
+  `insufficient_quota`; direct speech returned the equivalent HTTP 429.
+- Fixed the universal streaming client to surface direct and `response.failed`
+  provider errors instead of silently returning an empty response, with a
+  deterministic regression probe for the observed event shape.

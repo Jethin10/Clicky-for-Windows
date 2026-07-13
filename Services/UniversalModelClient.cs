@@ -217,6 +217,11 @@ public sealed class UniversalModelClient : IDisposable
             try
             {
                 using var document = JsonDocument.Parse(payload);
+                if (TryGetStreamError(document.RootElement, out var streamError))
+                {
+                    throw new HttpRequestException($"{_provider.DisplayName} streaming error: {TrimError(streamError)}");
+                }
+
                 var chunk = parseDelta(document.RootElement);
                 if (string.IsNullOrEmpty(chunk))
                 {
@@ -233,6 +238,45 @@ public sealed class UniversalModelClient : IDisposable
         }
 
         return result.ToString().Trim();
+    }
+
+    private static bool TryGetStreamError(JsonElement root, out string message)
+    {
+        message = string.Empty;
+        if (root.TryGetProperty("error", out var directError)
+            && directError.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined)
+        {
+            message = ExtractErrorMessage(directError);
+            return true;
+        }
+
+        if (root.TryGetProperty("type", out var type)
+            && type.GetString() == "response.failed"
+            && root.TryGetProperty("response", out var response)
+            && response.TryGetProperty("error", out var responseError))
+        {
+            message = ExtractErrorMessage(responseError);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string ExtractErrorMessage(JsonElement error)
+    {
+        if (error.ValueKind == JsonValueKind.String)
+        {
+            return error.GetString() ?? "Unknown provider error.";
+        }
+
+        if (error.ValueKind == JsonValueKind.Object
+            && error.TryGetProperty("message", out var message)
+            && !string.IsNullOrWhiteSpace(message.GetString()))
+        {
+            return message.GetString()!;
+        }
+
+        return error.ToString();
     }
 
     private static string? ParseResponsesDelta(JsonElement root)

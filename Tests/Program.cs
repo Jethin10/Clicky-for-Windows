@@ -175,6 +175,9 @@ Check(mimoProbe.Body.Contains("\"max_completion_tokens\":1200", StringComparison
     && mimoProbe.Body.Contains("\"type\":\"web_search\"", StringComparison.Ordinal)
     && mimoProbe.Body.Contains("\"max_keyword\":3", StringComparison.Ordinal), "MiMo token and web-search payload");
 
+var streamingError = await ProbeUniversalModelErrorAsync();
+Check(streamingError.Contains("quota exhausted", StringComparison.OrdinalIgnoreCase), "provider SSE error propagation");
+
 var workerProbe = await ProbeWorkerModelAsync();
 Check(workerProbe.Result == "worker reply", "Worker Claude SSE accumulation");
 Check(workerProbe.Request.Path == "/chat", "Worker Claude endpoint path");
@@ -497,6 +500,31 @@ static async Task<(string Token, HttpProbe Request)> ProbeAssemblyTokenAsync()
         var worker = ClickyWorkerConfiguration.FromBaseUrl($"http://127.0.0.1:{server.Port}");
         var token = await AssemblyAiTranscriptionSession.FetchTokenAsync(worker, CancellationToken.None);
         return (token, await server.Request.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+    finally
+    {
+        server.Listener.Stop();
+    }
+}
+
+static async Task<string> ProbeUniversalModelErrorAsync()
+{
+    const string sse = "data: {\"type\":\"response.created\"}\n\ndata: {\"type\":\"error\",\"error\":{\"type\":\"insufficient_quota\",\"message\":\"quota exhausted\"}}\n\ndata: {\"type\":\"response.failed\",\"response\":{\"error\":{\"message\":\"quota exhausted\"}}}\n\n";
+    var server = StartHttpProbe(sse, "text/event-stream");
+    try
+    {
+        var provider = ProviderSettings.FromPreset("OpenAI");
+        provider.BaseUrl = $"http://127.0.0.1:{server.Port}/v1";
+        using var client = new UniversalModelClient(provider, "model-key");
+        try
+        {
+            _ = await client.AnalyzeAsync([], "test", [], null, CancellationToken.None);
+            return string.Empty;
+        }
+        catch (HttpRequestException exception)
+        {
+            return exception.Message;
+        }
     }
     finally
     {
