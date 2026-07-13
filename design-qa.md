@@ -241,3 +241,18 @@ Pass with two intentional Windows adaptations:
   Windows; microphone settings remain optional for voice input.
 - Added an always-reachable **Continue to Clicky** action and persisted its
   completion in local settings so restarts open directly to the ready panel.
+
+## Pointer visibility and screen-edge routing — 2026-07-13
+
+- Reproduced the user's clock prompt against the configured live Gemini model;
+  Gemini returned a concrete `[POINT:1264,778:Windows clock]` tag and the
+  production parser accepted it, isolating the defect to overlay presentation.
+- Added a high-contrast 68-pixel target ring and center dot, kept the response
+  bubble inside the visible desktop near right and bottom edges, and reasserted
+  the overlay's topmost position every time it is shown.
+- Clamped screenshot coordinates inside the destination monitor and added a
+  final overlay fallback so edge rounding can no longer become a silent no-op.
+- Visually inspected the live desktop overlay in capture-enabled test mode and
+  confirmed the target ring rendered above the active application.
+- Release build completed with zero warnings and the smoke suite passed,
+  including a new bottom-right coordinate regression check.

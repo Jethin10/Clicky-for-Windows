@@ -206,6 +206,11 @@ var point = PointerTagParser.Parse("right here [POINT:320,240:button:screen2]");
 Check(point.SpokenText == "right here", "pointer spoken text");
 Check(point.Pixel == new Drawing.Point(320, 240), "pointer coordinates");
 Check(point.ScreenNumber == 2, "pointer screen number");
+var edgeCapture = new CapturedScreen(new Drawing.Rectangle(100, 200, 1_920, 1_080), 1_280, 720, string.Empty);
+var edgePoint = PointerTagParser.MapToScreen(
+    PointerTagParser.Parse("edge [POINT:1280,720:corner]"),
+    [edgeCapture]);
+Check(edgePoint is { X: < 2020, Y: < 1280 }, "pointer mapping stays inside the overlay at screenshot edges");
 
 var documentService = new DocumentContextService();
 var textFixture = Path.Combine(Path.GetTempPath(), $"clicky-document-{Guid.NewGuid():N}.md");

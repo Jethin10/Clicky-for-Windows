@@ -61,6 +61,8 @@ public partial class CursorOverlayWindow : Window
             Show();
         }
 
+        ReassertTopmost();
+
         _renderTimer.Start();
     }
 
@@ -73,6 +75,7 @@ public partial class CursorOverlayWindow : Window
         _isFlying = false;
         _isPointing = false;
         Bubble.Visibility = Visibility.Collapsed;
+        TargetMarker.Visibility = Visibility.Collapsed;
         Hide();
     }
 
@@ -88,6 +91,7 @@ public partial class CursorOverlayWindow : Window
             _isFlying = false;
             _isPointing = false;
             Bubble.Visibility = Visibility.Collapsed;
+            TargetMarker.Visibility = Visibility.Collapsed;
         }
         _state = state;
         CursorTriangle.Visibility = state is InteractionState.Listening or InteractionState.Processing
@@ -136,7 +140,10 @@ public partial class CursorOverlayWindow : Window
         {
             _isPointing = true;
             var local = PointFromScreen(new System.Windows.Point(position.X, position.Y));
-            var destination = ClampToOverlay(new System.Windows.Point(local.X + 8, local.Y + 12));
+            PlaceTargetMarker(local);
+            ConfigureBubblePlacement(local);
+            TargetMarker.Visibility = Visibility.Visible;
+            var destination = ClampToOverlay(new System.Windows.Point(local.X + 10, local.Y + 10));
             await FlyToAsync(destination, cancellationToken);
             await TypePointerBubbleAsync(phrase, cancellationToken);
 
@@ -154,6 +161,7 @@ public partial class CursorOverlayWindow : Window
         {
             _isPointing = false;
             Bubble.Visibility = Visibility.Collapsed;
+            TargetMarker.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -173,11 +181,7 @@ public partial class CursorOverlayWindow : Window
     {
         var handle = new WindowInteropHelper(this).Handle;
         NativeMethods.ConfigureCompanionOverlay(handle);
-        if (_screen is not null)
-        {
-            var bounds = _screen.Bounds;
-            _ = NativeMethods.SetWindowPos(handle, NativeMethods.HwndTopmost, bounds.Left, bounds.Top, bounds.Width, bounds.Height, NativeMethods.SwpNoActivate | NativeMethods.SwpShowWindow);
-        }
+        ReassertTopmost();
     }
 
     private void RenderFrame()
@@ -254,6 +258,31 @@ public partial class CursorOverlayWindow : Window
         return new System.Windows.Point(
             Math.Clamp(position.X, 20, Math.Max(20, ActualWidth - 32)),
             Math.Clamp(position.Y, 20, Math.Max(20, ActualHeight - 32)));
+    }
+
+    private void PlaceTargetMarker(System.Windows.Point position)
+    {
+        const double radius = 34;
+        System.Windows.Controls.Canvas.SetLeft(TargetMarker, Math.Clamp(position.X - radius, 0, Math.Max(0, ActualWidth - radius * 2)));
+        System.Windows.Controls.Canvas.SetTop(TargetMarker, Math.Clamp(position.Y - radius, 0, Math.Max(0, ActualHeight - radius * 2)));
+    }
+
+    private void ConfigureBubblePlacement(System.Windows.Point target)
+    {
+        BubbleOffset.X = target.X > ActualWidth - 210 ? -202 : 0;
+        BubbleOffset.Y = target.Y > ActualHeight - 130 ? -104 : 0;
+    }
+
+    private void ReassertTopmost()
+    {
+        if (_screen is null || !IsLoaded)
+        {
+            return;
+        }
+
+        var bounds = _screen.Bounds;
+        var handle = new WindowInteropHelper(this).Handle;
+        _ = NativeMethods.SetWindowPos(handle, NativeMethods.HwndTopmost, bounds.Left, bounds.Top, bounds.Width, bounds.Height, NativeMethods.SwpNoActivate | NativeMethods.SwpShowWindow);
     }
 
     private void ScheduleVisualTestSnapshot()
