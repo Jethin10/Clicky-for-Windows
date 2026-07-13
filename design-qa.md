@@ -247,12 +247,17 @@ Pass with two intentional Windows adaptations:
 - Reproduced the user's clock prompt against the configured live Gemini model;
   Gemini returned a concrete `[POINT:1264,778:Windows clock]` tag and the
   production parser accepted it, isolating the defect to overlay presentation.
-- Added a high-contrast 68-pixel target ring and center dot, kept the response
-  bubble inside the visible desktop near right and bottom edges, and reasserted
-  the overlay's topmost position every time it is shown.
+- Kept the response bubble inside the visible desktop near right and bottom
+  edges and reasserted the overlay's topmost position every time it is shown.
+- Matched the upstream navigation behavior: the 16-pixel glowing triangle now
+  rotates to face its variable-duration arc, shows the short `right here!`
+  pointer phrase at arrival, and then flies back to the real cursor.
+- Seeded the overlay position synchronously from the Windows cursor before any
+  immediate point animation, preventing first-run flights from starting at the
+  WPF default coordinate `(0,0)`.
 - Clamped screenshot coordinates inside the destination monitor and added a
   final overlay fallback so edge rounding can no longer become a silent no-op.
 - Visually inspected the live desktop overlay in capture-enabled test mode and
-  confirmed the target ring rendered above the active application.
+  confirmed the cursor rendered above the active application.
 - Release build completed with zero warnings and the smoke suite passed,
   including a new bottom-right coordinate regression check.

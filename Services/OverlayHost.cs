@@ -32,6 +32,10 @@ public sealed class OverlayHost : IDisposable
             overlay.SetState(_state);
         }
 
+        // Seed the buddy from the real cursor synchronously. Waiting for the
+        // first 16 ms timer tick lets an immediate PointAt flight start at
+        // WPF's default (0,0), which visibly launches Clicky from a screen edge.
+        UpdateCursor();
         _cursorTimer.Start();
     }
 

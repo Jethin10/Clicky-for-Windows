@@ -124,7 +124,7 @@ public sealed class CompanionHost : IDisposable
         if (NativeMethods.IsVisualTest
             && string.Equals(Environment.GetEnvironmentVariable("CLICKY_VISUAL_TEST_OVERLAY"), "1", StringComparison.Ordinal))
         {
-            System.Windows.Application.Current.Dispatcher.BeginInvoke(StartOnboarding);
+            System.Windows.Application.Current.Dispatcher.BeginInvoke(RunOverlayVisualTest);
         }
 
         if (NativeMethods.IsVisualTest
@@ -148,6 +148,19 @@ public sealed class CompanionHost : IDisposable
 
         _settings.OnboardingCompleted = true;
         _settingsService.Save(_settings);
+    }
+
+    private async void RunOverlayVisualTest()
+    {
+        _panel.Hide();
+        _overlayHost.Show();
+        _overlayHost.SetState(InteractionState.Idle);
+        await Task.Delay(500);
+        var screen = System.Windows.Forms.Screen.PrimaryScreen?.Bounds
+            ?? new Drawing.Rectangle(0, 0, 1_280, 720);
+        _overlayHost.PointAt(
+            new Drawing.Point(screen.Left + 220, screen.Top + 220),
+            "right here!");
     }
 
     private async void RunPanelDismissVisualTest()
@@ -1086,7 +1099,8 @@ public sealed class CompanionHost : IDisposable
         _overlayHost.SetState(InteractionState.Responding);
         _panel.SetVoiceState(InteractionState.Responding);
         var target = PointerTagParser.MapToScreen(pointing, captures) ?? GetCursorPoint();
-        _overlayHost.PointAt(target, text);
+        var pointerPhrase = pointing.Pixel is null ? text : "right here!";
+        _overlayHost.PointAt(target, pointerPhrase);
 
         await SpeakConfiguredAsync(text, cancellationToken);
 

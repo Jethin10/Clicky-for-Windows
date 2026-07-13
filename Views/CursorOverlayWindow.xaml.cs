@@ -20,6 +20,7 @@ public partial class CursorOverlayWindow : Window
     private System.Windows.Point _flightStart;
     private System.Windows.Point _flightEnd;
     private DateTime _flightStarted;
+    private double _flightDurationMilliseconds = 780;
     private TaskCompletionSource<bool>? _flightCompletion;
     private CancellationTokenSource? _pointingCancellation;
     private InteractionState _state;
@@ -75,7 +76,6 @@ public partial class CursorOverlayWindow : Window
         _isFlying = false;
         _isPointing = false;
         Bubble.Visibility = Visibility.Collapsed;
-        TargetMarker.Visibility = Visibility.Collapsed;
         Hide();
     }
 
@@ -91,7 +91,6 @@ public partial class CursorOverlayWindow : Window
             _isFlying = false;
             _isPointing = false;
             Bubble.Visibility = Visibility.Collapsed;
-            TargetMarker.Visibility = Visibility.Collapsed;
         }
         _state = state;
         CursorTriangle.Visibility = state is InteractionState.Listening or InteractionState.Processing
@@ -140,9 +139,7 @@ public partial class CursorOverlayWindow : Window
         {
             _isPointing = true;
             var local = PointFromScreen(new System.Windows.Point(position.X, position.Y));
-            PlaceTargetMarker(local);
             ConfigureBubblePlacement(local);
-            TargetMarker.Visibility = Visibility.Visible;
             var destination = ClampToOverlay(new System.Windows.Point(local.X + 10, local.Y + 10));
             await FlyToAsync(destination, cancellationToken);
             await TypePointerBubbleAsync(phrase, cancellationToken);
@@ -161,7 +158,6 @@ public partial class CursorOverlayWindow : Window
         {
             _isPointing = false;
             Bubble.Visibility = Visibility.Collapsed;
-            TargetMarker.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -171,6 +167,8 @@ public partial class CursorOverlayWindow : Window
         _flightCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _flightStart = _currentPosition == default ? _targetPosition : _currentPosition;
         _flightEnd = destination;
+        var distance = (_flightEnd - _flightStart).Length;
+        _flightDurationMilliseconds = Math.Clamp(distance / 800d * 1000d, 600d, 1400d);
         _flightStarted = DateTime.UtcNow;
         _isFlying = true;
         _flightTimer.Start();
@@ -209,8 +207,7 @@ public partial class CursorOverlayWindow : Window
 
     private void RenderFlightFrame()
     {
-        const double durationMilliseconds = 780;
-        var linear = Math.Clamp((DateTime.UtcNow - _flightStarted).TotalMilliseconds / durationMilliseconds, 0, 1);
+        var linear = Math.Clamp((DateTime.UtcNow - _flightStarted).TotalMilliseconds / _flightDurationMilliseconds, 0, 1);
         var t = linear * linear * (3 - 2 * linear);
         var control = new System.Windows.Point(
             (_flightStart.X + _flightEnd.X) / 2,
@@ -219,6 +216,9 @@ public partial class CursorOverlayWindow : Window
         _currentPosition = new System.Windows.Point(
             oneMinusT * oneMinusT * _flightStart.X + 2 * oneMinusT * t * control.X + t * t * _flightEnd.X,
             oneMinusT * oneMinusT * _flightStart.Y + 2 * oneMinusT * t * control.Y + t * t * _flightEnd.Y);
+        var tangentX = 2 * oneMinusT * (control.X - _flightStart.X) + 2 * t * (_flightEnd.X - control.X);
+        var tangentY = 2 * oneMinusT * (control.Y - _flightStart.Y) + 2 * t * (_flightEnd.Y - control.Y);
+        CursorRotation.Angle = Math.Atan2(tangentY, tangentX) * 180 / Math.PI + 90;
         System.Windows.Controls.Canvas.SetLeft(Buddy, _currentPosition.X);
         System.Windows.Controls.Canvas.SetTop(Buddy, _currentPosition.Y);
         var scale = 1 + Math.Sin(linear * Math.PI) * 0.30;
@@ -234,6 +234,7 @@ public partial class CursorOverlayWindow : Window
         _isFlying = false;
         BuddyScale.ScaleX = 1;
         BuddyScale.ScaleY = 1;
+        CursorRotation.Angle = -35;
         _flightCompletion?.TrySetResult(true);
     }
 
@@ -258,13 +259,6 @@ public partial class CursorOverlayWindow : Window
         return new System.Windows.Point(
             Math.Clamp(position.X, 20, Math.Max(20, ActualWidth - 32)),
             Math.Clamp(position.Y, 20, Math.Max(20, ActualHeight - 32)));
-    }
-
-    private void PlaceTargetMarker(System.Windows.Point position)
-    {
-        const double radius = 34;
-        System.Windows.Controls.Canvas.SetLeft(TargetMarker, Math.Clamp(position.X - radius, 0, Math.Max(0, ActualWidth - radius * 2)));
-        System.Windows.Controls.Canvas.SetTop(TargetMarker, Math.Clamp(position.Y - radius, 0, Math.Max(0, ActualHeight - radius * 2)));
     }
 
     private void ConfigureBubblePlacement(System.Windows.Point target)
